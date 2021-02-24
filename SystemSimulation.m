@@ -23,4 +23,5 @@ Jp = 1.2551*10^-4;
 Vub = 10;
 Vlb = -10;
 
-%% 
+%Initial conditions
+x0 = [0 pi 0 0]; 
