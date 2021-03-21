@@ -1,4 +1,4 @@
 # ignore de volgende files en directories
 slprj/
 *.asv
-*slxc
+*.slxc
