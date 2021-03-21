@@ -28,13 +28,10 @@ Vlb = -10;          % Lowerbound voltage
 
 %Initial conditions
 x0 = [0 pi 0 0]; 
-
-tfin=10;
-tspan=0:1e-2:tfin;       % To obtain solution at specific times
+u0 = 10;
 
 %% Matrices motion equations 
-syms x [4 1] , syms u
+syms x dx [4 1] , syms u
 
-dx = manipulator(
-
+dx = manipulator(dx,x,u);
 
