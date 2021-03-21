@@ -1,4 +1,7 @@
-%Inverted rotary pendulum parameters
+clc, clear
+
+%% Inverted rotary pendulum parameters
+global mr Lr mp Lp mh rh Jh Rm kt km Jm Lm g Br Bp Jr Jp
 
 mr = 0.095;         % Rotary arm mass
 Lr = 0.085;         % Rotary arm length
@@ -25,3 +28,13 @@ Vlb = -10;          % Lowerbound voltage
 
 %Initial conditions
 x0 = [0 pi 0 0]; 
+
+tfin=10;
+tspan=0:1e-2:tfin;       % To obtain solution at specific times
+
+%% Matrices motion equations 
+%Simulation without controller
+u=@(t,x) 0; % Define the input, as a function of time and/or state; in this
+            % case, u is the zero function
+f=@(t,x)manipulator(t,x,u); % ODE definition    
+[t,x]=ode45(f,tspan,x0);       % Solving ODE
