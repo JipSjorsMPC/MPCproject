@@ -1,15 +1,17 @@
 function [A,B] = linearizePendulumDynamics(xref,uref)
-%linearizePendulumDynamics obtains the A,B matrices around the reference
-%   point (xref,uref). Let ex =  x- xref and eu = u-uref. Then the
-%   matrices describe the linearized dynamics around the reference point
-%   dexdt = A*ex+Beu
-%       y = C*ex+D*eu
-% Input:
-%   model   : The model of the nonlinear pendulum to be linearized
+% linearizePendulumDynamics, obtains the A,B matrices around the reference
+%   point (xref,uref). Let xe =  x- xref and ue = u-uref. Then the
+%   matrices describe following relation around the reference point:
+%       dxedt = A*xe+B*ue,
+%   and thus describe the linearized error dynamics around the reference
+%   point.
+
+% Input: 
 %   xref    : a reference state
 %   uref    : a reference input
 
-% Output:   : the A,B matrices
+% Output:
+%  [A,B]     : the A,B matrices
 
 global Lr mp Lp Rm kt km g Br Bp Jr Jp
 
@@ -31,12 +33,16 @@ dxdt = [x3; x4;...
     H\(Bt*tau-C*[x3; x4]-G)];
 
 %Now linearize dxdt = f(x,u,t) w.r.t x and u;
-dfdx =  simplify(jacobian(dxdt,[x1; x2; x3; x4]));
+dfdx =  simplify(jacobian(dxdt,[x1 x2 x3 x4]));
 dfdu = simplify(jacobian(dxdt,u));
 
 %Get the A = dfdx(xref,uref) and B = dfdu(xref,uref);
 A = subs(dfdx,[x1 x2 x3 x4 u],[xref' uref]); 
 B = subs(dfdu,[x1 x2 x3 x4 u],[xref' uref]);
+
+%Convert to numeric values
+A = double(A);
+B = double(B);
 
 end
 
