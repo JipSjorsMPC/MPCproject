@@ -1,4 +1,4 @@
-function dx = manipulator(t,x,u)
+function dx = manipulator(t,dx,x,u)
 global Lr mp Lp g Br Bp Jr Jp
 
     H = [   Jr+mp*Lr^2+.25*mp*Lp^2*sin(x(2))^2     -.5*mp*Lr*Lp*cos(x(2));
@@ -12,11 +12,11 @@ global Lr mp Lp g Br Bp Jr Jp
 
     B = [   1;
             0];
-    
-    dx = zeros(4,1);
+
     dx(1) = x(3);
     dx(2) = x(4);
     dx(3:4) = (-C*x(3:4) - G + B*u)\H;
-    
+
+
 end
 
