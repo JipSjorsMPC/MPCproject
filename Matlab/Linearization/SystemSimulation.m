@@ -33,8 +33,20 @@ tfin=10;
 tspan=0:1e-2:tfin;       % To obtain solution at specific times
 
 %% Matrices motion equations 
-%Simulation without controller
-u=@(t,x) 0; % Define the input, as a function of time and/or state; in this
-            % case, u is the zero function
-f=@(t,x)manipulator(t,x,u); % ODE definition    
-[t,x]=ode45(f,tspan,x0);       % Solving ODE
+syms x dx [4 1] , syms u
+
+H = [   Jr+mp*Lr^2+.25*mp*Lp^2*sin(x(2))^2     -.5*mp*Lr*Lp*cos(x(2));
+        .5*mp*Lr*Lp*cos(x(2))                   Jp+.25*mp*Lp^2  ];
+
+C = [	.25*mp*Lp^2*sin(2*x(2))*x(4)+Br         .5*mp*Lr*Lp*x(4)*sin(x(2));
+       -.125*mp*Lp^2*x(3)*sin(2*x(2))           Bp  ];
+
+G = [   0;
+       -.5*mp*Lp*g*sin(x(1))];
+
+B = [   1;
+        0];
+    
+dx(1) = x(3);
+dx(2) = x(4);
+dx(3:4) = (-C*x(3:4) - G + B*u)\H;
