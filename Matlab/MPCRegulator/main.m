@@ -30,7 +30,7 @@ Jp = 1.2551*10^-4;	% Rotary arm moment of inertia
 %position
 global u
 u = 0;
-x0 = [0; 0.25; 0; 0];
+x0 = [0; pi/2; 0; 0];
 Tf = 5;
 [t,x] = ode45(@nonlinearPendulumDynamics,[0 Tf],x0);
 
@@ -76,21 +76,20 @@ no = size(C,1);
 D = zeros(no,ni);
 
 %Verify linearization manually
+%Define A,B
+detH = Jp*mp*Lr^2+Jr*Jp+1/4*Jr*mp*Lp^2;
+Am = 1/detH * [0 0 detH 0;...
+    0 0 0 detH;...
+    0 1/4*mp^2*Lp^2*Lr*g -(Jp+1/4*mp*Lp^2)*Br -0.5*mp*Lp*Lr*Bp;...
+    0 1/2*mp*Lp*g*(Jr+mp*Lr^2) -0.5*mp*Lp*Lr*Br -(Jr+mp*Lr^2)*Bp];
 
-% %Define A,B
-% detH = Jp*mp*Lr^2+Jr*Jp+1/4*Jr*mp*Lp^2;
-% Am = 1/detH * [0 0 detH 0;...
-%     0 0 0 detH;...
-%     0 1/4*mp^2*Lp^2*Lr*g -(Jp+1/4*mp*Lp^2)*Br -0.5*mp*Lp*Lr*Bp;...
-%     0 1/2*mp*Lp*g*(Jr+mp*Lr^2) -0.5*mp*Lp*Lr*Br -(Jr+mp*Lr^2)*Bp];
-% 
-% Bm = 1/detH * [0; 0; Jp+1/4*mp*Lp^2; 0.5*mp*Lp*Lr];
-% nx = size(Am,1);
-% nu = size(Bm,2);
-% 
-% %Include the actuator dynamics
-% Am = Am-[zeros(nx,2) Bm*kt*km/Rm zeros(nx,1)];
-% Bm = kt/Rm*Bm;
+Bm = 1/detH * [0; 0; Jp+1/4*mp*Lp^2; 0.5*mp*Lp*Lr];
+nx = size(Am,1);
+nu = size(Bm,2);
+
+%Include the actuator dynamics
+Am = Am-[zeros(nx,2) Bm*kt*km/Rm zeros(nx,1)];
+Bm = kt/Rm*Bm;
 
 %Indeed checked and verified this gives same result
 %% Discretizatize linearized system
@@ -103,18 +102,21 @@ sysd = c2d(ss(Ac,Bc,C,D),Ts,'zoh');
 %% Solve MPC problem with MPT3 toolbox
 
 %Weights
-Q = blkdiag(1,10,0.1,0.1);
-R = 0.1;
-N = 50;
+Q = blkdiag(1,1000,1,10);
+R = 0.01;
+N = 20;
 
 %Define model
 model = LTISystem('A', A, 'B', B, 'C', C, 'D', D, 'Ts', Ts);
 
 %State and input constraints
-model.u.min = -20;
-model.u.max = 20;
+model.u.min = -40;
+model.u.max = 40;
 model.x.min = [-pi -pi -inf -inf];
 model.x.max = [pi pi inf inf];
+Pfeas = Polyhedron('lb', model.x.min, 'ub', model.x.max);
+model.x.with('setConstraint');
+model.x.setConstraint = Pfeas;
 
 %Set cost function
 model.x.penalty = QuadFunction(Q);
@@ -133,28 +135,44 @@ mpc_controller = MPCController(model, N);
 
 %Simulate
 loop = ClosedLoop(mpc_controller, model);
-x0 = [pi/10; pi/10; 0; 0];
+x0 = [-5*pi/180; 2*pi/180; 0; 0];
 e0 = x0-xRef;
 Tsim = 2;
 Nsim = Tsim/Ts;
 data = loop.simulate(e0,Nsim);
+
+%Plot the results
 figure();
-subplot(2,1,1)
-stairs(0:Nsim,data.X');
-title('State error $\tilde{x}(k)$','interpreter','latex')
-xlabel('k');
-ylabel('$\tilde{x}$(k)','interpreter','latex');
-legend('$\tilde{\theta}(k)$','$\tilde{\alpha}(k)$','$\tilde{\dot{\theta}}(k)$','$\tilde{\dot{\alpha}}(k)$','interpreter','latex');
-subplot(2,1,2);
-stairs(0:Nsim-1,data.U);
-title('Input $\tilde{u}(k)$','interpreter','latex')
-xlabel('k');
-ylabel('u [V]','interpreter','latex');
-legend('$\tilde{u}(k)$','interpreter','latex');
+subplot(3,2,1)
+stairs((0:Nsim)*Ts,data.X(1,:)'*180/pi);
+xlabel('t');
+ylabel('\theta[deg]');
+title('x_1(t)');
+subplot(3,2,2)
+stairs((0:Nsim)*Ts,data.X(2,:)'*180/pi);
+xlabel('t');
+ylabel('\alpha[deg]');
+title('x_2(t)');
+subplot(3,2,3)
+stairs((0:Nsim)*Ts,data.X(3,:)'*180/pi);
+xlabel('t');
+ylabel('\theta_d[deg/s]');
+title('x_3(t)');
+subplot(3,2,4)
+stairs((0:Nsim)*Ts,data.X(4,:)'*180/pi);
+xlabel('t');
+ylabel('\alpha_d[deg/s]');
+title('x_4(t)');
+subplot(3,2,[5 6]);
+stairs((0:Nsim-1)*Ts,data.U,'r');
+title('Control input du(t)')
+xlabel('t');
+ylabel('u [V]');
+
 
 % %Plot Xn and Xf
 % figure();
-% Xn = model.invariantSet();
+% % Xn = model.invariantSet();
 % %plot(Xf,'color','g',Xn,'color','r');
 % plot(Xf,'color','g');
 % legend('$$X_N$$','$$X_f$$','Interpreter','latex');
@@ -175,7 +193,7 @@ uOpt = mpc_controller.evaluate(e(:,k));
 %Simulate the system using zero order hold
 uApl(:,k) = uOpt + uRef;
 u = uApl(:,k);
-[tout,x_interval] = ode45(@nonlinearPendulumDynamics,[t(k) t(k+1)],x(:,k));
+[tout,x_interval] = ode15s(@nonlinearPendulumDynamics,[t(k) t(k+1)],x(:,k));
 
 %Evaluate the next state
 x(:,k+1) = x_interval(end,:)';
@@ -184,24 +202,24 @@ end
 
 figure();
 subplot(3,2,1)
-stairs(Ts*(0:Nsim),x(1,:)'');
+stairs(Ts*(0:Nsim),x(1,:)'*180/pi);
 xlabel('t[s]');
-ylabel('$\theta(t)$ [rad]','interpreter','latex');
+ylabel('$\theta(t)$ [deg]','interpreter','latex');
 title('State x_1(t)');
 subplot(3,2,2);
-stairs(Ts*(0:Nsim),x(2,:)');
+stairs(Ts*(0:Nsim),x(2,:)'*180/pi);
 xlabel('t[s]');
-ylabel('$\alpha(t)$ [rad]','interpreter','latex');
+ylabel('$\alpha(t)$ [deg]','interpreter','latex');
 title('State x_2(t)');
 subplot(3,2,3);
-stairs(Ts*(0:Nsim),x(3,:)'');
+stairs(Ts*(0:Nsim),x(3,:)'*180/pi);
 xlabel('t[s]');
-ylabel('$\dot{\theta}(t)$ [rad/s]','interpreter','latex');
+ylabel('$\dot{\theta}(t)$ [deg/s]','interpreter','latex');
 title('State x_3(t)');
 subplot(3,2,4);
-stairs(Ts*(0:Nsim),x(4,:)'');
+stairs(Ts*(0:Nsim),x(4,:)'*180/pi);
 xlabel('t[s]');
-ylabel('$\dot{\alpha}(t)$ [rad/s]','interpreter','latex');
+ylabel('$\dot{\alpha}(t)$ [deg/s]','interpreter','latex');
 title('State x_4(t)');
 subplot(3,2,[5 6]);
 stairs(Ts*(0:Nsim-1),uApl','r');
