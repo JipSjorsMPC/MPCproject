@@ -1,8 +1,13 @@
 function dxdt = nonlinearPendulumDynamics(t,x)
-
-%This function outputs the dynamics of the rotary pendulum
-%in the form xdot = f(x,t); The state x will be defined as
-%x = [theta alpha thetadot alphadot]';
+%nonlinearPendulumDynamics outputs the dynamics of the rotary pendulum
+%   in the form xdot = f(x,t); The state x will be defined as
+%   x = [theta alpha thetadot alphadot]';
+%
+% Input:
+%   t           :   time vector
+%   x           :   state vector
+% Output:
+%   [dxdt]      :   the dynamics dxdt=f(x,t)
 
 global Lr mp Lp Rm kt km g Br Bp Jr Jp
 global u

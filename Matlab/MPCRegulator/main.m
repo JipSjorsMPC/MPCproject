@@ -64,18 +64,19 @@ legend('$x_4(t)$','interpreter','latex');
 %% Linearize continous system
 
 %Linearize continuous dynamics around reference point
-xref = [0; 0; 0; 0];
-uref = 0;
-[A,B] = linearizePendulumDynamics(xref,uref);
+xRef = [0; 0; 0; 0];
+uRef = 0;
+[Ac,Bc] = linearizePendulumDynamics(xRef,uRef);
 
 %Define the C and D matrix
-nx = size(A,1);
-ni = size(B,2);
+nx = size(Ac,1);
+ni = size(Bc,2);
 C = eye(nx);
 no = size(C,1);
 D = zeros(no,ni);
 
-%% Verify linearization manually
+%Verify linearization manually
+
 % %Define A,B
 % detH = Jp*mp*Lr^2+Jr*Jp+1/4*Jr*mp*Lp^2;
 % Am = 1/detH * [0 0 detH 0;...
@@ -95,24 +96,178 @@ D = zeros(no,ni);
 %% Discretizatize linearized system
 
 %Discretize system using sample time Ts
-h = 0.1;
-sys = ss(A,B,C,D);
-sysd = c2d(sys,h,'zoh');
-[Ad,Bd,Cd,Dd] = ssdata(sysd);
+Ts = 0.05;
+sysd = c2d(ss(Ac,Bc,C,D),Ts,'zoh');
+[A,B,C,D] = ssdata(sysd);
 
-%% Solve MPC problem
+%% Solve MPC problem with MPT3 toolbox
 
-%Parameters
-Q
+%Weights
+Q = blkdiag(1,10,0.1,0.1);
+R = 0.1;
+N = 50;
+
+%Define model
+model = LTISystem('A', A, 'B', B, 'C', C, 'D', D, 'Ts', Ts);
+
+%State and input constraints
+model.u.min = -20;
+model.u.max = 20;
+model.x.min = [-pi -pi -inf -inf];
+model.x.max = [pi pi inf inf];
+
+%Set cost function
+model.x.penalty = QuadFunction(Q);
+model.u.penalty = QuadFunction(R);
+
+%Terminal set and terminal penalty
+model.x.with('terminalPenalty');
+model.x.with('terminalSet');
+P = model.LQRPenalty;
+Xf = model.LQRSet;
+model.x.terminalPenalty = P;
+model.x.terminalSet = Xf;
+
+%Get controller
+mpc_controller = MPCController(model, N);
+
+%Simulate
+loop = ClosedLoop(mpc_controller, model);
+x0 = [pi/10; pi/10; 0; 0];
+e0 = x0-xRef;
+Tsim = 2;
+Nsim = Tsim/Ts;
+data = loop.simulate(e0,Nsim);
+figure();
+subplot(2,1,1)
+stairs(0:Nsim,data.X');
+title('State error $\tilde{x}(k)$','interpreter','latex')
+xlabel('k');
+ylabel('$\tilde{x}$(k)','interpreter','latex');
+legend('$\tilde{\theta}(k)$','$\tilde{\alpha}(k)$','$\tilde{\dot{\theta}}(k)$','$\tilde{\dot{\alpha}}(k)$','interpreter','latex');
+subplot(2,1,2);
+stairs(0:Nsim-1,data.U);
+title('Input $\tilde{u}(k)$','interpreter','latex')
+xlabel('k');
+ylabel('u [V]','interpreter','latex');
+legend('$\tilde{u}(k)$','interpreter','latex');
+
+% %Plot Xn and Xf
+% figure();
+% Xn = model.invariantSet();
+% %plot(Xf,'color','g',Xn,'color','r');
+% plot(Xf,'color','g');
+% legend('$$X_N$$','$$X_f$$','Interpreter','latex');
+
+
+%% Now simulate on the nonlinear system
+
+x = zeros(nx,Nsim+1);
+e = zeros(nx,Nsim);
+x(:,1) = x0;
+uApl = zeros(ni,Nsim);
+time = (0:Nsim-1)*Ts;
+for k = 1:Nsim    
+%Compute the optimal control input
+e(:,k) = x(:,k)-xRef;
+uOpt = mpc_controller.evaluate(e(:,k));
+
+%Simulate the system using zero order hold
+uApl(:,k) = uOpt + uRef;
+u = uApl(:,k);
+[tout,x_interval] = ode45(@nonlinearPendulumDynamics,[t(k) t(k+1)],x(:,k));
+
+%Evaluate the next state
+x(:,k+1) = x_interval(end,:)';
+
+end
+
+figure();
+subplot(3,2,1)
+stairs(Ts*(0:Nsim),x(1,:)'');
+xlabel('t[s]');
+ylabel('$\theta(t)$ [rad]','interpreter','latex');
+title('State x_1(t)');
+subplot(3,2,2);
+stairs(Ts*(0:Nsim),x(2,:)');
+xlabel('t[s]');
+ylabel('$\alpha(t)$ [rad]','interpreter','latex');
+title('State x_2(t)');
+subplot(3,2,3);
+stairs(Ts*(0:Nsim),x(3,:)'');
+xlabel('t[s]');
+ylabel('$\dot{\theta}(t)$ [rad/s]','interpreter','latex');
+title('State x_3(t)');
+subplot(3,2,4);
+stairs(Ts*(0:Nsim),x(4,:)'');
+xlabel('t[s]');
+ylabel('$\dot{\alpha}(t)$ [rad/s]','interpreter','latex');
+title('State x_4(t)');
+subplot(3,2,[5 6]);
+stairs(Ts*(0:Nsim-1),uApl','r');
+title(['Control input using MPC with N = ', num2str(N)]);
+xlabel('t[s]');
+ylabel('u[V]');
 
 
 
-
-
-%Get infinite control Riccati cost +control
-[P,~,K] = dare(A,B,Q,R);
-K = -K;
-
+% %% Solve with methods from Class
+% %Parameters
+% Q = blkdiag(100,100,10,10);
+% R = 1;
+% N = 8;
+% 
+% %Get unconstrained infinite control Riccati cost and control
+% [P,~,G] = dare(A,B,Q,R);
+% K = -G;
+% 
+% %Constraints (see further below)
+% % |x1(k)|<= pi/4    for all k
+% % |u(k)|<= 5        for all k
+% % |x2(k)| <= pi/8  for all k
+% 
+% %Compute the terminal set Xf
+% %Build constraints 
+% Ak = A+B*K;
+% Ff = vertcat([1 0 0 0; -1 0 0 0],[0 1 0 0; 0 -1 0 0],[K ;-K]);
+% gf = vertcat([pi/4; pi/4],[pi/8; pi/8],[5;5]);
+% 
+% %Compute Xf under u =Kx such that x satisfies input and state constraints
+% [Hf,hf,kstar] = computeMaxConstraintAdmissibleSet(Ak,Ff,gf);
+% 
+% %Plot it
+% figure();
+% Xf = Polyhedron(Hf,hf);
+% 
+% %Remove redundancies
+% Xf.minHRep();
+% Hf = Xf.A;
+% hf = Xf.b;
+% 
+% %Get Prediction matrices
+% [T,S] = getStatePredictionMatrices(A,B,N);
+% 
+% %First build G,H and phi matrix in Gx+Hu+phi<=0
+% F1h = kron(eye(N+1),[1 0 0 0; -1 0 0 0; 0 1 0 0; 0 -1 0 0]);
+% g1h = repmat([pi/4;pi/4;pi/8;pi/8],N+1,1);
+% F2h = kron(eye(N),[1;-1]);
+% g2h = repmat(5*[1;1],N,1);
+% G = [F1h*T;...
+%  zeros(size(F2h,1),size(A,1));...
+%  Hf*T(end-nx+1:end,:)];
+% H = [F1h*S; F2h; Hf*S(end-nx+1:end,:)];
+% phi = [-g1h; -g2h; -hf];
+% 
+% % Compute Xn, i.e. the region of attraction
+% [PXn,gammaXn] = computeRegionOfAttraction(G,H,phi);
+%  
+% % get of Attraction (ROA)
+% figure();
+% Xn = Polyhedron(PXn,-gammaXn);
+% plot(Xn,'color','g',Xf,'color','r');
+% legend('$$X_N$$','$$X_f$$','Interpreter','latex');
+% 
+% 
 
 
 
