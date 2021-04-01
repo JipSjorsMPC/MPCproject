@@ -23,44 +23,6 @@ Bp = 1.4*10^-5;     % Damping coefficient pendulum link
 Jr = 2.2923*10^-4;	% Pendulum arm moment of inertia
 Jp = 1.2551*10^-4;	% Rotary arm moment of inertia
 
-
-%% Simulate autonomous nonlinear system
-
-%Set input to zero and simulate around small deviation from upright
-%position
-global u
-u = 0;
-x0 = [0; pi/2; 0; 0];
-Tf = 5;
-[t,x] = ode45(@nonlinearPendulumDynamics,[0 Tf],x0);
-
-%Plot the results
-subplot(2,2,1);
-plot(t,x(:,1),'c');
-title('$\theta(t)$','interpreter','latex');
-xlabel('$t [s]$','interpreter','latex');
-ylabel('$x_1$[rad]','interpreter','latex');
-legend('$x_1(t)$','interpreter','latex');
-subplot(2,2,2);
-plot(t,x(:,2),'g');
-title('$\alpha(t)$','interpreter','latex');
-xlabel('$t [s]$','interpreter','latex');
-ylabel('$x_2$[rad]','interpreter','latex');
-legend('$x_2(t)$','interpreter','latex');
-subplot(2,2,3);
-plot(t,x(:,3),'b');
-title('$\dot{\theta(t)}$','interpreter','latex');
-xlabel('$t [s]$','interpreter','latex');
-ylabel('$x_3$[rad/s]','interpreter','latex');
-legend('$x_3(t)$','interpreter','latex');
-subplot(2,2,4);
-plot(t,x(:,4),'r');
-title('$\dot{\alpha(t)}$','interpreter','latex');
-xlabel('$t[s]$','interpreter','latex');
-ylabel('$x_4$[rad/s]','interpreter','latex');
-legend('$x_4(t)$','interpreter','latex');
-
-
 %% Linearize continous system
 
 %Linearize continuous dynamics around reference point
@@ -102,21 +64,19 @@ sysd = c2d(ss(Ac,Bc,C,D),Ts,'zoh');
 %% Solve MPC problem with MPT3 toolbox
 
 %Weights
-Q = blkdiag(1,1000,1,10);
+Q = blkdiag(1,100,1,10);
 R = 0.01;
-N = 20;
+N = 5;
 
 %Define model
 model = LTISystem('A', A, 'B', B, 'C', C, 'D', D, 'Ts', Ts);
 
 %State and input constraints
-model.u.min = -40;
-model.u.max = 40;
-model.x.min = [-pi -pi -inf -inf];
-model.x.max = [pi pi inf inf];
-Pfeas = Polyhedron('lb', model.x.min, 'ub', model.x.max);
-model.x.with('setConstraint');
-model.x.setConstraint = Pfeas;
+model.u.min = -10;
+model.u.max = 10;
+
+model.x.min = [-pi/2 -pi/4 -5*2*pi -5*2*pi];
+model.x.max = [pi/2 pi/4 5*2*pi 5*2*pi];
 
 %Set cost function
 model.x.penalty = QuadFunction(Q);
@@ -125,10 +85,8 @@ model.u.penalty = QuadFunction(R);
 %Terminal set and terminal penalty
 model.x.with('terminalPenalty');
 model.x.with('terminalSet');
-P = model.LQRPenalty;
-Xf = model.LQRSet;
-model.x.terminalPenalty = P;
-model.x.terminalSet = Xf;
+model.x.terminalPenalty = model.LQRPenalty;
+model.x.terminalSet = model.LQRSet;
 
 %Get controller
 mpc_controller = MPCController(model, N);
@@ -170,12 +128,36 @@ xlabel('t');
 ylabel('u [V]');
 
 
-% %Plot Xn and Xf
-% figure();
-% % Xn = model.invariantSet();
-% %plot(Xf,'color','g',Xn,'color','r');
-% plot(Xf,'color','g');
-% legend('$$X_N$$','$$X_f$$','Interpreter','latex');
+%% Plot Xn and Xf
+
+%Compute DARE gain and cost
+[K, P] = dlqr(A, B, Q, R);
+K = -K; 
+
+% Calculate Xn and Xf (maximum LQR-invariant set) using normal penalty.
+[Xn, V, Z] = findXn(A, B, K, N, model.x.min, model.x.max, model.u.min, model.u.max, 'lqr');
+XN = Polyhedron(Xn{end}.A,Xn{end}.b);
+Xf = Polyhedron(Xn{1}.A,Xn{1}.b);
+XN.minHRep();
+Xf.minHRep();
+
+%Plot the ROA in 3D
+XN_2D = XN.projection(1:3);
+Xf_2D = Xf.projection(1:3);
+plot(XN_2D,'color','g',Xf_2D,'color','r');
+legend('$$X_N$$','$$X_f$$','Interpreter','latex');
+
+
+%%
+
+
+
+
+
+
+
+
+
 
 
 %% Now simulate on the nonlinear system
@@ -193,7 +175,7 @@ uOpt = mpc_controller.evaluate(e(:,k));
 %Simulate the system using zero order hold
 uApl(:,k) = uOpt + uRef;
 u = uApl(:,k);
-[tout,x_interval] = ode15s(@nonlinearPendulumDynamics,[t(k) t(k+1)],x(:,k));
+[tout,x_interval] = ode45(@nonlinearPendulumDynamics,[t(k) t(k+1)],x(:,k));
 
 %Evaluate the next state
 x(:,k+1) = x_interval(end,:)';
@@ -228,64 +210,6 @@ xlabel('t[s]');
 ylabel('u[V]');
 
 
-
-% %% Solve with methods from Class
-% %Parameters
-% Q = blkdiag(100,100,10,10);
-% R = 1;
-% N = 8;
-% 
-% %Get unconstrained infinite control Riccati cost and control
-% [P,~,G] = dare(A,B,Q,R);
-% K = -G;
-% 
-% %Constraints (see further below)
-% % |x1(k)|<= pi/4    for all k
-% % |u(k)|<= 5        for all k
-% % |x2(k)| <= pi/8  for all k
-% 
-% %Compute the terminal set Xf
-% %Build constraints 
-% Ak = A+B*K;
-% Ff = vertcat([1 0 0 0; -1 0 0 0],[0 1 0 0; 0 -1 0 0],[K ;-K]);
-% gf = vertcat([pi/4; pi/4],[pi/8; pi/8],[5;5]);
-% 
-% %Compute Xf under u =Kx such that x satisfies input and state constraints
-% [Hf,hf,kstar] = computeMaxConstraintAdmissibleSet(Ak,Ff,gf);
-% 
-% %Plot it
-% figure();
-% Xf = Polyhedron(Hf,hf);
-% 
-% %Remove redundancies
-% Xf.minHRep();
-% Hf = Xf.A;
-% hf = Xf.b;
-% 
-% %Get Prediction matrices
-% [T,S] = getStatePredictionMatrices(A,B,N);
-% 
-% %First build G,H and phi matrix in Gx+Hu+phi<=0
-% F1h = kron(eye(N+1),[1 0 0 0; -1 0 0 0; 0 1 0 0; 0 -1 0 0]);
-% g1h = repmat([pi/4;pi/4;pi/8;pi/8],N+1,1);
-% F2h = kron(eye(N),[1;-1]);
-% g2h = repmat(5*[1;1],N,1);
-% G = [F1h*T;...
-%  zeros(size(F2h,1),size(A,1));...
-%  Hf*T(end-nx+1:end,:)];
-% H = [F1h*S; F2h; Hf*S(end-nx+1:end,:)];
-% phi = [-g1h; -g2h; -hf];
-% 
-% % Compute Xn, i.e. the region of attraction
-% [PXn,gammaXn] = computeRegionOfAttraction(G,H,phi);
-%  
-% % get of Attraction (ROA)
-% figure();
-% Xn = Polyhedron(PXn,-gammaXn);
-% plot(Xn,'color','g',Xf,'color','r');
-% legend('$$X_N$$','$$X_f$$','Interpreter','latex');
-% 
-% 
 
 
 
