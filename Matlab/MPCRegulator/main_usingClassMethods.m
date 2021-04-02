@@ -124,5 +124,3 @@ Xn2D.minHRep();
 %Plot Xn and Xf
 plot(Xn2D,'color','g',Xf2D,'color','r');
 legend('$$X_N$$','$$X_f$$','Interpreter','latex');
-
-

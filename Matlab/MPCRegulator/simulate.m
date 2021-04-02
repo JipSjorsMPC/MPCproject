@@ -3,40 +3,36 @@ function rp = simulate(x,Ts)
     global Lr Lp
     n = length(x);
 
-%     x(1:2,:) = x(1:2,:).*180/pi;
-    x(1:2,:) = [linspace(0,2*pi,n);linspace(0,2*pi,n)]
-    rp = [Lr*cos(x(1,:))+0.5*Lp*sin(x(2,:)).*sin(x(1,:));
-          Lr*cos(x(1,:))-0.5*Lp*sin(x(2,:)).*cos(x(1,:));
-          0.5*Lp*cos(x(2,:))];
-    
-    link = [Lr*cos(x(1,:));
-            Lr*sin(x(1,:));
-            zeros(1,length(x))];
+    alpha = x(1,:);%.*180/pi;
+    theta = x(2,:);%.*180/pi;
         
-    tip = [Lr*cos(x(1,:))+Lp*sin(x(2,:)).*sin(x(1,:));
-           Lr*cos(x(1,:))-Lp*sin(x(2,:)).*cos(x(1,:));
-           Lp*cos(x(2,:))];
-      
+    link = [Lr*cos(theta);
+            -Lr*sin(theta);
+            zeros(size(theta))];
+        
+    tip = [Lr*cos(theta)+Lp*sin(alpha).*sin(theta);
+           -Lr*sin(theta)-Lp*sin(alpha).*cos(theta);
+           Lp*cos(alpha)];
+       
+          
     figure(5);
-    for i = 1:n
-        plot3([0 link(1,i)],[0 link(2,i)],[0 link(3,i)],'r','linewidth',3),hold on
-%         plot3([link(1,i) tip(1,i)],[link(2,i) tip(2,i)],[link(3,i) tip(3,i)],'r','linewidth',3);
-%         plot3([link(1,i) rp(1,i)],[link(2,i) rp(2,i)],[link(3,i) rp(3,i)],'r','linewidth',3);
-        pause(Ts), hold off
-        plot3(rp(1,i),rp(2,i),rp(3,i),'or','MarkerSize',3,'MarkerFaceColor','c'), hold on;
-        axis([-Lr Lr -Lr Lr -Lp Lp]);
-        grid on
+    plotcube([.1 .1 (Lp-.01)],[-.05 -.05 -Lp],1,[32 32 32]/256); hold on %EDGES,ORIGIN,ALPHA,COLOR
+    attachement = plot3(0,0,0,'Color',[32 32 32]/256,'linewidth',25); hold on
+    rotary_arm = plot3(0,0,0,'Color',[192 192 192]/256,'linewidth',4); hold on
+    pendulum_link = plot3(0,0,0,'Color',[135 22 20]/256,'linewidth',8); hold on
+    traj = animatedline('Color','c');    
+    set(attachement,'XData',[0 0],'Ydata',[0 0],'Zdata',[-Lp 0]);
+    axis([-Lp Lp -Lp Lp -Lp Lp]);
+    xlabel('x'), ylabel('y'), zlabel('z');
+    hold on, grid on; 
+    view(75,3)
+    for i= 1:n
+        set(rotary_arm,'XData',[0 link(1,i)],'Ydata',[0 link(2,i)],'Zdata',[0 link(3,i)]);
+        set(pendulum_link,'XData',[link(1,i) tip(1,i)],'Ydata',[link(2,i) tip(2,i)],'Zdata',[link(3,i) tip(3,i)]);
+        addpoints(traj,tip(1,i),tip(2,i),tip(3,i));
+        drawnow;
+        pause(Ts); %pause execution for to make animation visible    
     end
-    
-%     plot3(rp(1,:),rp(2,:),rp(3,:))
-%     
-%     n = length(x);
-%     XY = 10 * rand(2,n) - 5;
-%     figure()
-%     for i=1:n
-%         plot3(link(1,:),link(2,:),link(3,:),'or','MarkerSize',5,'MarkerFaceColor','r')
-%         axis(2*[-Lp Lp -Lp Lp -Lp Lp])
-%         pause(.3)
-%     end
+    hold off
 
 return
