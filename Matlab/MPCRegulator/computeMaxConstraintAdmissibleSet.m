@@ -8,7 +8,7 @@ function [H,h,kstar] = computeMaxConstraintAdmissibleSet(Ak,F,g)
 
 % Input: 
 %   g       :   s x 1 column vector, where s are the number of constraints
-%   F       :   s x nx matrix where s in the number of constraints and no is the
+%   F       :   s x nx matrix where s in the number of constraints and nx is the
 %               number of states.
 % Output:
 %   H,h     :   the polytope that is maximal constraint admissible given by
