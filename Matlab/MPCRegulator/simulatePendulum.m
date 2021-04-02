@@ -1,4 +1,4 @@
-function rp = simulate(x,Ts)
+function rp = simulatePendulum(x,Ts)
     
     global Lr Lp
     n = length(x);
