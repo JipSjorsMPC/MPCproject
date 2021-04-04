@@ -48,9 +48,6 @@ Ts = 0.05;
 sysd = c2d(ss(Ac,Bc,Cc,Dc),Ts,'zoh');
 [A,B,C,D] = ssdata(sysd);
 
-%Check if the system is controlleable
-rk = rank(ctrb(A,B));
-
 %% Solve with methods from Class
 %Parameters
 Q = blkdiag(1,100,1,100);
@@ -61,6 +58,21 @@ N = 3;
 [P,~,G] = dare(A,B,Q,R);
 K = -G;
 
+Ak = A+B*K;
+Qk = Q+K'*R*K;
+
+%% Check if Linearized system is local CLF
+%(A,B) stable?
+if rank(ctrb(A,B))==length(A) disp('(A,B) is stabilizable'), else disp('(A,B) is <strong>not</strong> stabilizable'), end
+
+%P positive definite?
+if eig(P)>0 disp('P is pos. definite'), else disp('P is <strong>not</strong> pos. definite'), end 
+
+%Ak stable?
+if (trace(Ak)< 0) && (det(Ak)>0) disp('Ak is Hurwitz stable'), else disp('Ak is <strong>not</strong> Hurwitz stable'), end
+
+%%
+
 %Constraints (see further below)
 % |x1(k)|<= pi/4    for all k
 % |u(k)|<= 5        for all k
@@ -70,8 +82,7 @@ x2_b = pi;
 u_b = 20;
 
 %Compute the terminal set Xf
-%Build constraints 
-Ak = A+B*K;
+%Build constraints
 Ff = vertcat([1 0 0 0; -1 0 0 0],[0 1 0 0; 0 -1 0 0],[K ;-K]);
 gf = vertcat([x1_b; x1_b],[x2_b; x2_b],[u_b; u_b]);
 
