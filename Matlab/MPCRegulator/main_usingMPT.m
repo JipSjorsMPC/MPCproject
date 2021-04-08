@@ -3,7 +3,7 @@ clear all;
 clc;
 
 %% Define parameters
-global Lr mp Lp Rm kt km g Br Bp Jr Jp;
+global Lr mp Lp Rm kt km g Br Bp Jr Jp u;
 
 mr = 0.095;         % Rotary arm mass
 Lr = 0.085;         % Rotary arm length
@@ -22,6 +22,9 @@ Br = 8.0508*10^-4;  % Damping coefficient rotary arm link
 Bp = 1.4*10^-5;     % Damping coefficient pendulum link
 Jr = 2.2923*10^-4;	% Pendulum arm moment of inertia
 Jp = 1.2551*10^-4;	% Rotary arm moment of inertia
+
+%Lump motor, hub and rotary arm
+Jr = Jr + Jh + Jm;
 
 %% Linearize continous system
 
@@ -57,26 +60,25 @@ Bm = kt/Rm*Bm;
 %% Discretizatize linearized system
 
 %Discretize system using sample time Ts
-Ts = 0.05;
+Ts = 0.1;
 sysd = c2d(ss(Ac,Bc,C,D),Ts,'zoh');
 [A,B,C,D] = ssdata(sysd);
 
 %% Solve MPC problem with MPT3 toolbox
 
 %Weights
-Q = blkdiag(1,100,1,10);
+Q = blkdiag(10,100,1,5);
 R = 0.01;
-N = 5;
+N = 30;
 
 %Define model
 model = LTISystem('A', A, 'B', B, 'C', C, 'D', D, 'Ts', Ts);
 
 %State and input constraints
-model.u.min = -10;
-model.u.max = 10;
-
-model.x.min = [-pi/2 -pi/4 -5*2*pi -5*2*pi];
-model.x.max = [pi/2 pi/4 5*2*pi 5*2*pi];
+model.u.min = -5;
+model.u.max = 5;
+model.x.min = [-pi/2 -pi/10 -20*2*pi -20*2*pi];
+model.x.max = [pi/2 pi/10 20*2*pi 20*2*pi];
 
 %Set cost function
 model.x.penalty = QuadFunction(Q);
@@ -93,11 +95,11 @@ mpc_controller = MPCController(model, N);
 
 %Simulate
 loop = ClosedLoop(mpc_controller, model);
-x0 = [-5*pi/180; 2*pi/180; 0; 0];
-e0 = x0-xRef;
-Tsim = 10;
-Nsim = Tsim/Ts;
-data = loop.simulate(e0,Nsim);
+x0 = [0; 2*pi/180; 0; 0];
+Tsim = 1.5;
+Nsim = round(Tsim/Ts);
+data = loop.simulate(x0,Nsim);
+
 
 %Plot the results
 figure();
@@ -130,86 +132,91 @@ ylabel('u [V]');
 
 %% Plot Xn and Xf
 
-%Compute DARE gain and cost
-[K, P] = dlqr(A, B, Q, R);
-K = -K; 
-
-% Calculate Xn and Xf (maximum LQR-invariant set) using normal penalty.
-[Xn, V, Z] = findXn(A, B, K, N, model.x.min, model.x.max, model.u.min, model.u.max, 'lqr');
-XN = Polyhedron(Xn{end}.A,Xn{end}.b);
-Xf = Polyhedron(Xn{1}.A,Xn{1}.b);
-XN.minHRep();
-Xf.minHRep();
-
-%Plot the ROA in 3D
-XN_2D = XN.projection(1:3);
-Xf_2D = Xf.projection(1:3);
-plot(XN_2D,'color','g',Xf_2D,'color','r');
-legend('$$X_N$$','$$X_f$$','Interpreter','latex');
-
-
-%%
-
-
-
-
-
-
-
-
-
+% 
+% %Compute DARE gain and cost
+% [K, P] = dlqr(A, B, Q, R);
+% K = -K; 
+% 
+% % Calculate Xn and Xf (maximum LQR-invariant set) using normal penalty.
+% [Xn, V, Z] = findXn(A, B, K, N, model.x.min, model.x.max, model.u.min, model.u.max, 'lqr');
+% XN = Polyhedron(Xn{end}.A,Xn{end}.b);
+% Xf = Polyhedron(Xn{1}.A,Xn{1}.b);
+% XN.minHRep();
+% Xf.minHRep();
+% 
+% %Plot the ROA in 3D
+% plot(XN.projection(1:3),'color','g',Xf.projection(1:3),'color','r');
+% legend('$$X_N$$','$$X_f$$','Interpreter','latex');
 
 
 %% Now simulate on the nonlinear system
 
-x = zeros(nx,Nsim+1);
-e = zeros(nx,Nsim);
-x(:,1) = x0;
-uApl = zeros(ni,Nsim);
-time = (0:Nsim-1)*Ts;
-for k = 1:Nsim    
-%Compute the optimal control input
-e(:,k) = x(:,k)-xRef;
-uOpt = mpc_controller.evaluate(e(:,k));
-
-%Simulate the system using zero order hold
-uApl(:,k) = uOpt + uRef;
-u = uApl(:,k);
-[tout,x_interval] = ode45(@nonlinearPendulumDynamics,[t(k) t(k+1)],x(:,k));
-
-%Evaluate the next state
-x(:,k+1) = x_interval(end,:)';
-
-end
-
-figure();
-subplot(3,2,1)
-stairs(Ts*(0:Nsim),x(1,:)'*180/pi);
-xlabel('t[s]');
-ylabel('$\theta(t)$ [deg]','interpreter','latex');
-title('State x_1(t)');
-subplot(3,2,2);
-stairs(Ts*(0:Nsim),x(2,:)'*180/pi);
-xlabel('t[s]');
-ylabel('$\alpha(t)$ [deg]','interpreter','latex');
-title('State x_2(t)');
-subplot(3,2,3);
-stairs(Ts*(0:Nsim),x(3,:)'*180/pi);
-xlabel('t[s]');
-ylabel('$\dot{\theta}(t)$ [deg/s]','interpreter','latex');
-title('State x_3(t)');
-subplot(3,2,4);
-stairs(Ts*(0:Nsim),x(4,:)'*180/pi);
-xlabel('t[s]');
-ylabel('$\dot{\alpha}(t)$ [deg/s]','interpreter','latex');
-title('State x_4(t)');
-subplot(3,2,[5 6]);
-stairs(Ts*(0:Nsim-1),uApl','r');
-title(['Control input using MPC with N = ', num2str(N)]);
-xlabel('t[s]');
-ylabel('u[V]');
-
-
+% x = zeros(nx,Nsim+1);
+% x(:,1) = x0;
+% uApl = zeros(ni,Nsim);
+% time = (0:Nsim)*Ts;
+% for k = 1:Nsim    
+% %Compute the optimal control input
+% uOpt = mpc_controller.evaluate(x(:,k));
+% 
+% %Simulate the system using zero order hold
+% uApl(:,k) = uOpt + uRef;
+% u = uApl(:,k);
+% [tout,x_interval] = ode45(@nonlinearPendulumDynamics,[time(k) time(k+1)],x(:,k));
+% 
+% %Evaluate the next state
+% x(:,k+1) = x_interval(end,:)';
+% 
+% end
+% 
+% figure();
+% subplot(3,2,1)
+% stairs(Ts*(0:Nsim),x(1,:)'*180/pi);
+% xlabel('t[s]');
+% ylabel('$\theta(t)$ [deg]','interpreter','latex');
+% title('State x_1(t)');
+% subplot(3,2,2);
+% stairs(Ts*(0:Nsim),x(2,:)'*180/pi);
+% xlabel('t[s]');
+% ylabel('$\alpha(t)$ [deg]','interpreter','latex');
+% title('State x_2(t)');
+% subplot(3,2,3);
+% stairs(Ts*(0:Nsim),x(3,:)'*180/pi);
+% xlabel('t[s]');
+% ylabel('$\dot{\theta}(t)$ [deg/s]','interpreter','latex');
+% title('State x_3(t)');
+% subplot(3,2,4);
+% stairs(Ts*(0:Nsim),x(4,:)'*180/pi);
+% xlabel('t[s]');
+% ylabel('$\dot{\alpha}(t)$ [deg/s]','interpreter','latex');
+% title('State x_4(t)');
+% subplot(3,2,[5 6]);
+% stairs(Ts*(0:Nsim-1),uApl','r');
+% title(['Control input using MPC with N = ', num2str(N)]);
+% xlabel('t[s]');
+% ylabel('u[V]');
+% 
+% 
 
 
 
+%% %Plot using MPT for the explicit controller
+% eMpc = mpc_controller.toExplicit();
+% eLoop = ClosedLoop(eMpc,model);
+% Xn = eLoop.invariantSet;
+% Xf = model.LQRSet();
+% X = Polyhedron('lb',model.x.min,'ub',model.x.max);
+% U = Polyhedron('lb',model.u.min,'ub',model.u.max);
+% 
+% % Find Xf and Xn
+% XN = cell(N+1,1);
+% XN{1} = model.LQRSet.minHRep(); XN{1}.minHRep(); XN{1}.minVRep();
+% PreXf = model.reachableSet('X',model.LQRSet,'U',U,'direction','backward');
+% XN{2} = intersect(X,PreXf); XN{2}.minHRep(); XN{2}.minVRep();
+% for i = 2:N
+%     Pre = model.reachableSet('X',XN{i},'U',U,'direction','backward');
+%     XN{i+1} = intersect(Pre,X); XN{i+1}.minHRep(); XN{i+1}.minVRep();
+% end
+% 
+% figure();
+% plot(X.projection(1:3),'color','b',XN{N+1}.projection(1:3),'color','g',model.LQRSet.projection(1:3),'color','r');
