@@ -3,9 +3,9 @@ function rp = simulatePendulum(x,Ts)
     global Lr Lp
     n = length(x);
 
-    alpha = x(1,:);%.*180/pi;
-    theta = x(2,:);%.*180/pi;
-        
+    theta = x(1,:);%.*180/pi;
+    alpha = x(2,:);%.*180/pi;
+
     link = [Lr*cos(theta);
             -Lr*sin(theta);
             zeros(size(theta))];
