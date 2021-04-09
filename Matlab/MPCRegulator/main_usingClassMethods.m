@@ -3,7 +3,7 @@ clear all;
 clc;
 
 %% Define parameters
-global Lr mp Lp Rm kt km g Br Bp Jr Jp u;
+global mr Lr mp Lp Rm kt km g Br Bp Jr Jp u;
 
 mr = 0.095;         % Rotary arm mass
 Lr = 0.085;         % Rotary arm length

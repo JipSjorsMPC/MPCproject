@@ -95,7 +95,7 @@ mpc_controller = MPCController(model, N);
 
 %Simulate
 loop = ClosedLoop(mpc_controller, model);
-x0 = [0; 2*pi/180; 0; 0];
+x0 = [0; pi/2; 0; 0];
 Tsim = 1.5;
 Nsim = round(Tsim/Ts);
 data = loop.simulate(x0,Nsim);
