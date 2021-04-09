@@ -95,7 +95,7 @@ mpc_controller = MPCController(model, N);
 
 %Simulate
 loop = ClosedLoop(mpc_controller, model);
-x0 = [0; 2*pi/180; 0; 0];
+x0 = [0; 4.3*pi/180; 0; 0];
 Tsim = 1.5;
 Nsim = round(Tsim/Ts);
 data = loop.simulate(x0,Nsim);
@@ -133,20 +133,20 @@ ylabel('u [V]');
 %% Plot Xn and Xf
 
 % 
-% %Compute DARE gain and cost
-% [K, P] = dlqr(A, B, Q, R);
-% K = -K; 
-% 
-% % Calculate Xn and Xf (maximum LQR-invariant set) using normal penalty.
-% [Xn, V, Z] = findXn(A, B, K, N, model.x.min, model.x.max, model.u.min, model.u.max, 'lqr');
-% XN = Polyhedron(Xn{end}.A,Xn{end}.b);
-% Xf = Polyhedron(Xn{1}.A,Xn{1}.b);
-% XN.minHRep();
-% Xf.minHRep();
-% 
-% %Plot the ROA in 3D
-% plot(XN.projection(1:3),'color','g',Xf.projection(1:3),'color','r');
-% legend('$$X_N$$','$$X_f$$','Interpreter','latex');
+%Compute DARE gain and cost
+[K, P] = dlqr(A, B, Q, R);
+K = -K; 
+
+% Calculate Xn and Xf (maximum LQR-invariant set) using normal penalty.
+[Xn, V, Z] = findXn(A, B, K, N, model.x.min, model.x.max, model.u.min, model.u.max, 'lqr');
+XN = Polyhedron(Xn{end}.A,Xn{end}.b);
+Xf = Polyhedron(Xn{1}.A,Xn{1}.b);
+XN.minHRep();
+Xf.minHRep();
+
+%Plot the ROA in 3D
+plot(XN.projection(1:3),'color','g',Xf.projection(1:3),'color','r');
+legend('$$X_N$$','$$X_f$$','Interpreter','latex');
 
 
 %% Now simulate on the nonlinear system
@@ -169,34 +169,39 @@ x(:,k+1) = x_interval(end,:)';
 
 end
 
+%% Plot and compare with nonlinear model
 figure();
-subplot(3,2,1)
-stairs(Ts*(0:Nsim),x(1,:)'*180/pi);
+subplot(3,1,1)
+stairs(Ts*(0:Nsim),x(1,:)'*180/pi,'c--');
+hold on
+stairs((0:Nsim)*Ts,data.X(1,:)'*180/pi,'c');
+stairs(Ts*(0:Nsim),x(2,:)'*180/pi,'b--');
+hold on
+stairs((0:Nsim)*Ts,data.X(2,:)'*180/pi,'b');
 xlabel('t[s]');
-ylabel('$\theta(t)$ [deg]','interpreter','latex');
-title('State x_1(t)');
-subplot(3,2,2);
-stairs(Ts*(0:Nsim),x(2,:)'*180/pi);
-xlabel('t[s]');
-ylabel('$\alpha(t)$ [deg]','interpreter','latex');
-title('State x_2(t)');
-subplot(3,2,3);
-stairs(Ts*(0:Nsim),x(3,:)'*180/pi);
-xlabel('t[s]');
-ylabel('$\dot{\theta}(t)$ [deg/s]','interpreter','latex');
-title('State x_3(t)');
-subplot(3,2,4);
+ylabel('\theta,\alpha');
+legend('\theta(nonlin)','\theta(lin)','\alpha(nonlin)','\alpha(lin)');
+title('MPC applied to nonlineair model at \alpha(0)=4.3^o');
+subplot(3,1,2)
+stairs(Ts*(0:Nsim),x(3,:)'*180/pi,'m--');
+hold on
+stairs((0:Nsim)*Ts,data.X(3,:)'*180/pi,'m');
 stairs(Ts*(0:Nsim),x(4,:)'*180/pi);
+hold on
+stairs((0:Nsim)*Ts,data.X(4,:)'*180/pi);
 xlabel('t[s]');
-ylabel('$\dot{\alpha}(t)$ [deg/s]','interpreter','latex');
-title('State x_4(t)');
-subplot(3,2,[5 6]);
+ylabel('\theta_d,\alpha_d');
+legend('\theta_d(nonlin)','\theta_d(lin)','\alpha_d(nonlin)','\alpha_d(lin)');
+subplot(3,1,3);
 stairs(Ts*(0:Nsim-1),uApl','r');
-title(['Control input using MPC with N = ', num2str(N)]);
+hold on;
+stairs(Ts*(0:Nsim-1),data.U','b--');
+plot(Ts*(0:Nsim-1),[model.u.min; model.u.max]*ones(1,Nsim),'g--');
+ylim([-1.1 1.1]);
+title('Control input ');
 xlabel('t[s]');
 ylabel('u[V]');
-
-
+legend('$V_m (nonlin)$','$V_m (lin)$','interpreter','latex');
 
 
 
