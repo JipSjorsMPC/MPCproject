@@ -9,7 +9,7 @@ function dxdt = nonlinearPendulumDynamics(t,x)
 % Output:
 %   [dxdt]      :   the dynamics dxdt=f(x,t)
 
-global Lr mp Lp Rm kt km g Br Bp Jr Jp
+global mr Lr mp Lp Rm kt km g Br Bp Jr Jp
 global u
 
 % Define the manipulator form H(q)qdd+C(qd,q)qd+G(q)=Bu
@@ -28,9 +28,22 @@ B = [   1;...
 %Include actuator dynamics
 tau = kt*(u-km*x(3))/Rm;
 
+ke = 50;
+Er = 10e-3;
+umax = 10;
+E = .5*Jp*x(4)^2+mp*g*Lp*(1-cos(x(2)));
+tau_2 = kt\(Rm*Lr*mr)*(ke*(E-Er)*sign(x(4)*cos(x(2))));
+sat_u = min(umax, max(-umax, u));
+
 %Define dxdt = f(x,u,t)
-dxdt = [x(3); x(4);...
-    H\(B*tau-C*[x(3); x(4)]-G)];
+if abs(x(3))-pi < .345
+    dxdt = [x(3); x(4);...
+            H\(B*tau-C*[x(3); x(4)]-G)];
+else
+    dxdt = [0; x(4);0;
+            (-.5*mp*Lp*sat_u*tau_2*cos(x(2))+g*sin(x(2)))/Jp];
+end
+    
 
 end
 
