@@ -151,52 +151,52 @@ ylabel('u [V]');
 
 %% Now simulate on the nonlinear system
 
-% x = zeros(nx,Nsim+1);
-% x(:,1) = x0;
-% uApl = zeros(ni,Nsim);
-% time = (0:Nsim)*Ts;
-% for k = 1:Nsim    
-% %Compute the optimal control input
-% uOpt = mpc_controller.evaluate(x(:,k));
-% 
-% %Simulate the system using zero order hold
-% uApl(:,k) = uOpt + uRef;
-% u = uApl(:,k);
-% [tout,x_interval] = ode45(@nonlinearPendulumDynamics,[time(k) time(k+1)],x(:,k));
-% 
-% %Evaluate the next state
-% x(:,k+1) = x_interval(end,:)';
-% 
-% end
-% 
-% figure();
-% subplot(3,2,1)
-% stairs(Ts*(0:Nsim),x(1,:)'*180/pi);
-% xlabel('t[s]');
-% ylabel('$\theta(t)$ [deg]','interpreter','latex');
-% title('State x_1(t)');
-% subplot(3,2,2);
-% stairs(Ts*(0:Nsim),x(2,:)'*180/pi);
-% xlabel('t[s]');
-% ylabel('$\alpha(t)$ [deg]','interpreter','latex');
-% title('State x_2(t)');
-% subplot(3,2,3);
-% stairs(Ts*(0:Nsim),x(3,:)'*180/pi);
-% xlabel('t[s]');
-% ylabel('$\dot{\theta}(t)$ [deg/s]','interpreter','latex');
-% title('State x_3(t)');
-% subplot(3,2,4);
-% stairs(Ts*(0:Nsim),x(4,:)'*180/pi);
-% xlabel('t[s]');
-% ylabel('$\dot{\alpha}(t)$ [deg/s]','interpreter','latex');
-% title('State x_4(t)');
-% subplot(3,2,[5 6]);
-% stairs(Ts*(0:Nsim-1),uApl','r');
-% title(['Control input using MPC with N = ', num2str(N)]);
-% xlabel('t[s]');
-% ylabel('u[V]');
-% 
-% 
+x = zeros(nx,Nsim+1);
+x(:,1) = x0;
+uApl = zeros(ni,Nsim);
+time = (0:Nsim)*Ts;
+for k = 1:Nsim    
+%Compute the optimal control input
+uOpt = mpc_controller.evaluate(x(:,k));
+
+%Simulate the system using zero order hold
+uApl(:,k) = uOpt + uRef;
+u = uApl(:,k);
+[tout,x_interval] = ode45(@nonlinearPendulumDynamics,[time(k) time(k+1)],x(:,k));
+
+%Evaluate the next state
+x(:,k+1) = x_interval(end,:)';
+
+end
+
+figure();
+subplot(3,2,1)
+stairs(Ts*(0:Nsim),x(1,:)'*180/pi);
+xlabel('t[s]');
+ylabel('$\theta(t)$ [deg]','interpreter','latex');
+title('State x_1(t)');
+subplot(3,2,2);
+stairs(Ts*(0:Nsim),x(2,:)'*180/pi);
+xlabel('t[s]');
+ylabel('$\alpha(t)$ [deg]','interpreter','latex');
+title('State x_2(t)');
+subplot(3,2,3);
+stairs(Ts*(0:Nsim),x(3,:)'*180/pi);
+xlabel('t[s]');
+ylabel('$\dot{\theta}(t)$ [deg/s]','interpreter','latex');
+title('State x_3(t)');
+subplot(3,2,4);
+stairs(Ts*(0:Nsim),x(4,:)'*180/pi);
+xlabel('t[s]');
+ylabel('$\dot{\alpha}(t)$ [deg/s]','interpreter','latex');
+title('State x_4(t)');
+subplot(3,2,[5 6]);
+stairs(Ts*(0:Nsim-1),uApl','r');
+title(['Control input using MPC with N = ', num2str(N)]);
+xlabel('t[s]');
+ylabel('u[V]');
+
+
 
 
 

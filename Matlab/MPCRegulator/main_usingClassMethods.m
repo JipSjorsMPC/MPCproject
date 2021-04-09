@@ -47,7 +47,10 @@ sysd = c2d(ss(Ac,Bc,Cc,Dc),Ts,'zoh');
 
 %% Parameters
 %Parameters
-Q = blkdiag(10,100,1,5);
+% Q = blkdiag(10,100,1,5); %standard working
+% R = 0.01;
+% N = 20;
+Q = blkdiag(10,50,1,5);
 R = 0.01;
 N = 20;
 model.u.min = -1;
@@ -93,207 +96,216 @@ g_con = [g1h-F1h*T*x0; g2h];
 
 %% Simulate the online optimization problem for the linear system
 
-% %Prepare problem
-% Tsim = 1.8; %[s]
-% ksim = round(Tsim/Ts);
-% u_apl = zeros(ni,ksim);
-% x = zeros(nx,ksim);  
-% x(:,1) = x0;
-% for k = 1:ksim     
-%     
-%     %Recompute cost matrices in Vn(Un,x0), parametric in x0    
-%     [Ho,ho,~] = getCostMatrices(T,S,x(:,k),Q,R,P,N);
-%     
-%     %Define constraints Fu<=g(x(0))
-%     F_con = [F1h*S; F2h];
-%     g_con = [g1h-F1h*T*x(:,k); g2h];
-%         
-%     %Solve the problem
-%     cvx_begin
-%         cvx_precision high
-%         variable uvar(ni*N);
-%         minimize( 0.5*uvar'*Ho*uvar+ho'*uvar);        
-%         subject to
-%         F_con*uvar<=g_con;     
-%     cvx_end    
-%     uvar = uvar(:);
-%     u_apl(:,k) = uvar(1:ni);
-%     
-%     %Propagate system forward using the first input of the MPC solution
-%     x(:,k+1) = A*x(:,k)+B*u_apl(:,k);      
-%     
-% end
-% 
-% %% Plot the results
-% figure();
-% subplot(3,2,1:2)
-% stairs(Ts*(0:ksim),x(1,:)'*180/pi);
-% xlabel('t[s]');
-% ylabel('$\theta$,$\alpha$ [deg]','interpreter','latex');
-% hold on;
-% stairs(Ts*(0:ksim),x(2,:)'*180/pi);
-% legend('$\theta(t)$','$\alpha(t)$','interpreter','latex');
-% title('MPC Regulation: state \theta and \alpha');
-% subplot(3,2,3:4);
-% stairs(Ts*(0:ksim),x(3,:)'*180/pi);
-% xlabel('t[s]');
-% ylabel('$\dot{\theta}$,$\dot{\alpha}$ [deg/s]','interpreter','latex');
-% hold on
-% stairs(Ts*(0:ksim),x(4,:)'*180/pi);
-% legend('$\dot{\theta}(t)$','$\dot{\alpha}(t)$','interpreter','latex');
-% title('MPC Regulation: state \theta_d and \alpha_d');
-% subplot(3,2,5:6);
-% stairs(Ts*(0:ksim-1),u_apl','r');
-% title('Control input u(t)');
-% xlabel('t[s]');
-% ylabel('$u[V]$','interpreter','latex');
-% legend('$V_m(t)$','interpreter','latex');
+%Prepare problem
+Tsim = 1.8; %[s]
+ksim = round(Tsim/Ts);
+u_apl = zeros(ni,ksim);
+x = zeros(nx,ksim);  
+x(:,1) = x0;
+for k = 1:ksim     
+    
+    %Recompute cost matrices in Vn(Un,x0), parametric in x0    
+    [Ho,ho,~] = getCostMatrices(T,S,x(:,k),Q,R,P,N);
+    
+    %Define constraints Fu<=g(x(0))
+    F_con = [F1h*S; F2h];
+    g_con = [g1h-F1h*T*x(:,k); g2h];
+        
+    %Solve the problem
+    cvx_begin
+        cvx_precision high
+        variable uvar(ni*N);
+        minimize( 0.5*uvar'*Ho*uvar+ho'*uvar);        
+        subject to
+        F_con*uvar<=g_con;     
+    cvx_end    
+    uvar = uvar(:);
+    u_apl(:,k) = uvar(1:ni);
+    
+    %Propagate system forward using the first input of the MPC solution
+    x(:,k+1) = A*x(:,k)+B*u_apl(:,k);      
+    
+end
+
+%% Plot the results
+figure();
+subplot(3,2,1:2)
+stairs(Ts*(0:ksim),x(1,:)'*180/pi);
+xlabel('t[s]');
+ylabel('$\theta$,$\alpha$ [deg]','interpreter','latex');
+hold on;
+stairs(Ts*(0:ksim),x(2,:)'*180/pi);
+legend('$\theta(t)$','$\alpha(t)$','interpreter','latex');
+title('MPC Regulation: state \theta and \alpha');
+subplot(3,2,3:4);
+stairs(Ts*(0:ksim),x(3,:)'*180/pi);
+xlabel('t[s]');
+ylabel('$\dot{\theta}$,$\dot{\alpha}$ [deg/s]','interpreter','latex');
+hold on
+stairs(Ts*(0:ksim),x(4,:)'*180/pi);
+legend('$\dot{\theta}(t)$','$\dot{\alpha}(t)$','interpreter','latex');
+title('MPC Regulation: state \theta_d and \alpha_d');
+subplot(3,2,5:6);
+stairs(Ts*(0:ksim-1),u_apl','r');
+title('Control input u(t)');
+xlabel('t[s]');
+ylabel('$u[V]$','interpreter','latex');
+legend('$V_m(t)$','interpreter','latex');
 
 %% Output MPC and disturbance rejection
 
-% C = [1 0 0 0; 0 1 0 0];
-% no = size(C,1);
-% Bdtrue = B;
-% Cdtrue = [0; 0];
-% 
-% %Assumption model
-% ndass = 2;
-% Cd = [0 1; 0 1];
-% Bd = [B zeros(nx,1)];
-% 
-% %Desired setpoint on theta
-% H = [1 0];
-% rsp = pi/4;
-% 
-% %Pick error dynamics
-% eigenplaces = [0.5; 0.4; 0.45; 0.6; 0.65; 0.55]; %working  
-% 
-% %Check theoretical conditions
-% rkObs = rank(ctrb(A',C'));
-% rkCond = rank([eye(nx)-A -Bd; C Cd]);   
-%     
-% %Build observer
-% Aobs = [A Bd; zeros(ndass,nx) eye(ndass)];
-% Bobs = [B; zeros(ndass,ni)]; 
-% Cobs = [C Cd];
-% Lobs = place(Aobs',Cobs',eigenplaces')'; 
-% 
-% %Prepare problem
-% model = struct('A',A,'B',B,'C',C,'Bd',Bd,'Cd',Cd,'H',H);
-% constraints = struct('Ax',Ax,'bx',bx,'Au',Au,'bu',bu);
-% u_apl = zeros(ni,ksim);
-% xr = zeros(nx,ksim+1);
-% ur = zeros(ni,ksim+1);
-% x = zeros(nx,ksim+1);
-% y = zeros(no,ksim);
-% zh = zeros(nx+ndass,ksim+1);
-% dh = zeros(ndass,ksim+1);
-% xh = zeros(nx,ksim+1);
-% 
-% %Generate noise
-% % Sigma = [ 10^-8 0; 0 10^-8];
-% % v = randn(ksim, no) * chol(Sigma);
-% % v = v';
-% v = zeros(ksim,no)';
-% 
-% %Initial guess
-% d = 0.1;
-% xh(:,1) = zeros(4,1);
-% dh(:,1) = zeros(2,1);
-% zh(:,1) = [xh(:,1); dh(:,1)];
-% 
-% %Solve MPC in closed loop
-% for k = 1:ksim     
-%     
-%     % Solve OTS problem
-%     [xr(:,k),ur(:,k)] = getOTSReference(model,constraints,rsp,dh(:,k));
-%     
-%     %Obtain difference
-%     xt(:,k) = xh(:,k)-xr(:,k);
-%     
-%     %Recompute cost matrices in Vn(Un,x0), parametric in xt0  
-%     [Ho,ho,~] = getCostMatrices(T,S,xt(:,k),Q,R,P,N);
-%     
-%     %Define constraints Fu<=g(xt(0))
-%     F_con = [F1h*S; F2h];
-%     g_con = [g1h-F1h*T*xt(:,k); g2h];
-%     
-%     %Solve the problem
-%     cvx_begin
-%         cvx_precision high
-%         variable du(ni*N);
-%         minimize( 0.5*du'*Ho*du+ho'*du);
-%         F_con*du<=g_con; 
-%     cvx_end    
-%     du = du(:);
-%     
-%     %Propagate the true system forward using the first input of the MPC solution    
-%     u_apl(:,k) = du(1:ni)+ ur(:,k);                 
-%     x(:,k+1) = A*x(:,k) + B*u_apl(:,k) + Bdtrue*d;
-%     
-%     %Obtain measurement
-%     y(:,k) = C*x(:,k) + Cdtrue*d + v(:,k); 
-%     
-%     %Update our own belief of the state (i.e the observer)
-%     zh(:,k+1) = Aobs*zh(:,k)+Bobs*u_apl(:,k)+ Lobs*(y(:,k)-Cobs*zh(:,k)); 
-%     xh(:,k+1) = zh(1:nx,k+1);
-%     dh(:,k+1) = zh(nx+1:end,k+1);    
-%     
-% end
-% 
-% %% Plot the system dynamics
-% figure();
-% subplot(4,1,1)
-% stairs((0:ksim)*Ts,x(1:2,:)');
-% title('State x1 and x2');
-% xlabel('t[s]');
-% ylabel('x(k)');
-% legend('x_1(k)','x_2(k)');
-% subplot(4,1,2);
-% stairs((0:ksim)*Ts,x(3:4,:)');
-% title('State x3 and x4');
-% xlabel('t[s]');
-% ylabel('x(k)');
-% legend('x_3(k)','x_4(k)');
-% subplot(4,1,3);
-% stairs((0:ksim-1)*Ts,H*y);
-% hold on;
-% stairs((0:ksim-1)*Ts, rsp*ones(1,ksim),'--r');
-% title('Controlled variable r=\theta');
-% xlabel('t[s]');
-% yl = ylim;
-% ylim(yl+[-inf,1.05*rsp]);
-% ylabel('r(k)');
-% legend('r(k)','rsp');
-% subplot(4,1,4)
-% stairs((0:ksim-1)*Ts,u_apl(1,:),'r');
-% ylabel('u(k)');
-% title('MPC control input u(k)');
-% xlabel('t[s]');
-% legend('u_1(k)');
-% 
-% %Plot error dynamics
-% figure();
-% subplot(3,1,1);
-% stairs((0:ksim-1)*Ts,H*y-rsp);
-% title('Tracking Error');
-% xlabel('t[s]');
-% ylabel('\theta[rad]');
-% legend('r(k)');
-% subplot(3,1,2);
-% stairs((0:ksim)*Ts,dh');
-% title('Disturbance estimate');
-% xlabel('t[s]');
-% ylabel('d(k)');
-% legend('d_1(k)','d_2(k)');
-% subplot(3,1,3);
-% stairs((0:ksim)*Ts,(x-xh)');
-% title('State estimation error');
-% xlabel('t[s]');
-% ylabel('e_x(k)');
-% legend('e_1(k)','e_2(k)','e_3(k)','e_4(k)');
+C = [1 0 0 0; 0 1 0 0];
+no = size(C,1);
+Bdtrue = B;
+Cdtrue = [0; 0];
 
-%% Compare with Pole placement and LQR controllers
+%Assumption model
+ndass = 2;
+Cd = [0 1; 0 1];
+Bd = [B zeros(nx,1)];
+
+%Desired setpoint on theta
+H = [1 0];
+rsp = pi/4;
+
+%Pick error dynamics
+% eigenplaces = [0.5; 0.4; 0.45; 0.6; 0.65; 0.55]; %working  
+zeta = 0.7; wn = 30;
+RePo = [-40 -50 -60 -55];
+dSoPo = computeSecondOrderDiscretePoles(zeta,wn,Ts);
+dRePo = computeRealDiscretePole(Ts,RePo);
+eigenplaces = [dSoPo(:); dRePo(:)]';
+
+%Check theoretical conditions
+rkObs = rank(ctrb(A',C'));
+rkCond = rank([eye(nx)-A -Bd; C Cd]);   
+    
+%Build observer
+Aobs = [A Bd; zeros(ndass,nx) eye(ndass)];
+Bobs = [B; zeros(ndass,ni)]; 
+Cobs = [C Cd];
+Lobs = place(Aobs',Cobs',eigenplaces')'; 
+
+%Prepare problem
+model = struct('A',A,'B',B,'C',C,'Bd',Bd,'Cd',Cd,'H',H);
+constraints = struct('Ax',Ax,'bx',bx,'Au',Au,'bu',bu);
+u_apl = zeros(ni,ksim);
+xr = zeros(nx,ksim+1);
+ur = zeros(ni,ksim+1);
+x = zeros(nx,ksim+1);
+y = zeros(no,ksim);
+zh = zeros(nx+ndass,ksim+1);
+dh = zeros(ndass,ksim+1);
+xh = zeros(nx,ksim+1);
+
+%Generate noise
+% Sigma = [ 10^-8 0; 0 10^-8];
+% v = randn(ksim, no) * chol(Sigma);
+% v = v';
+v = zeros(ksim,no)';
+
+d = 0.1;
+%Initial guess
+xh(:,1) = zeros(4,1);
+dh(:,1) = zeros(2,1);
+zh(:,1) = [xh(:,1); dh(:,1)];
+
+%Solve MPC in closed loop
+for k = 1:ksim     
+    
+    % Solve OTS problem
+    [xr(:,k),ur(:,k)] = getOTSReference(model,constraints,rsp,dh(:,k));
+    
+    %Obtain difference
+    xt(:,k) = xh(:,k)-xr(:,k);
+    
+    %Recompute cost matrices in Vn(Un,x0), parametric in xt0  
+    [Ho,ho,~] = getCostMatrices(T,S,xt(:,k),Q,R,P,N);
+    
+    %Define constraints Fu<=g(xt(0))
+    F_con = [F1h*S; F2h];
+    g_con = [g1h-F1h*T*xt(:,k); g2h];
+    
+    %Solve the problem
+    cvx_begin
+        cvx_precision high
+        variable du(ni*N);
+        minimize( 0.5*du'*Ho*du+ho'*du);
+        F_con*du<=g_con; 
+    cvx_end    
+    du = du(:);
+    
+    %Propagate the true system forward using the first input of the MPC solution    
+    u_apl(:,k) = du(1:ni)+ ur(:,k);                 
+    x(:,k+1) = A*x(:,k) + B*u_apl(:,k) + Bdtrue*d;
+    
+    %Obtain measurement
+    y(:,k) = C*x(:,k) + Cdtrue*d + v(:,k); 
+    
+    %Update our own belief of the state (i.e the observer)
+    zh(:,k+1) = Aobs*zh(:,k)+Bobs*u_apl(:,k)+ Lobs*(y(:,k)-Cobs*zh(:,k)); 
+    xh(:,k+1) = zh(1:nx,k+1);
+    dh(:,k+1) = zh(nx+1:end,k+1);    
+    
+end
+
+%% Plot the system dynamics
+figure();
+subplot(4,1,1)
+stairs((0:ksim)*Ts,x(1:2,:)'*180/pi);
+title('Output MPC: state x1 and x2');
+xlabel('t[s]');
+ylabel('\theta,\alpha [deg]');
+legend('x_1(k)','x_2(k)');
+subplot(4,1,2);
+stairs((0:ksim)*Ts,x(3:4,:)'*180/pi);
+title('Output MPC: State x3 and x4');
+xlabel('t[s]');
+ylabel('\theta_d,\alpha_d [deg/s]');
+legend('x_3(k)','x_4(k)');
+subplot(4,1,3);
+stairs((0:ksim-1)*Ts,(H*y)*180/pi);
+hold on;
+stairs((0:ksim-1)*Ts, rsp*ones(1,ksim)*180/pi,'--r');
+title('Controlled variable r=\theta');
+xlabel('t[s]');
+yl = ylim;
+ylim(yl+[-inf,1.05*rsp*180/pi]);
+ylabel('r [rad]');
+legend('r(k)','rsp');
+subplot(4,1,4)
+stairs((0:ksim-1)*Ts,u_apl(1,:),'r');
+ylabel('u [V]');
+title('Control input u(k)');
+xlabel('t[s]');
+legend('u_1(k)');
+
+%Plot error dynamics
+figure();
+subplot(3,1,1);
+stairs((0:ksim-1)*Ts,(H*y-rsp)*180/pi);
+title('Tracking Error');
+xlabel('t[s]');
+ylabel('e_\theta[deg]');
+legend('e_r(k)');
+subplot(3,1,2);
+yyaxis left
+stairs((0:ksim)*Ts,dh(1,:)');
+title('Disturbance estimate');
+xlabel('t[s]');
+ylabel('d(k)');
+yyaxis right
+stairs((0:ksim)*Ts,dh(2,:)');
+legend('d_1(k)','d_2(k)');
+subplot(3,1,3);
+stairs((0:ksim)*Ts,(x-xh)'*180/pi);
+title('State estimation error');
+xlabel('t[s]');
+ylabel('e_x(k)');
+legend('e_1(k)','e_2(k)','e_3(k)','e_4(k)');
+
+
+%% %% Compare with Pole placement and LQR controllers
 % applied with Q = blkdiag(10,100,1,5);R = 0.01;N = 20;
 Tsim = 5; %[s]
 ksim = round(Tsim/Ts);
