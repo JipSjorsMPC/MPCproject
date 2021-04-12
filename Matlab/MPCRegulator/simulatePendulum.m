@@ -7,13 +7,12 @@ function rp = simulatePendulum(x,Ts)
     alpha = x(2,:);%.*180/pi;
 
     link = [Lr*cos(theta);
-            -Lr*sin(theta);
-            zeros(size(theta))];
+            Lr*sin(theta);
+            zeros(size(theta))]; %[x,y,z]
         
     tip = [Lr*cos(theta)+Lp*sin(alpha).*sin(theta);
-           -Lr*sin(theta)-Lp*sin(alpha).*cos(theta);
-           Lp*cos(alpha)];
-       
+           Lr*sin(theta)-Lp*sin(alpha).*cos(theta);
+           Lp*cos(alpha)];  %[x,y,z]       
           
     figure(5);
     plotcube([.1 .1 (Lp-.01)],[-.05 -.05 -Lp],1,[32 32 32]/256); hold on %EDGES,ORIGIN,ALPHA,COLOR
