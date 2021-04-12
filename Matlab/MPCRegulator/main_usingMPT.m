@@ -69,14 +69,14 @@ sysd = c2d(ss(Ac,Bc,C,D),Ts,'zoh');
 %Weights
 Q = blkdiag(10,100,1,5);
 R = 0.01;
-N = 30;
+N = 20;
 
 %Define model
 model = LTISystem('A', A, 'B', B, 'C', C, 'D', D, 'Ts', Ts);
 
 %State and input constraints
-model.u.min = -5;
-model.u.max = 5;
+model.u.min = -1;
+model.u.max = 1;
 model.x.min = [-pi/2 -pi/10 -20*2*pi -20*2*pi];
 model.x.max = [pi/2 pi/10 20*2*pi 20*2*pi];
 
@@ -133,20 +133,20 @@ ylabel('u [V]');
 %% Plot Xn and Xf
 
 % 
-%Compute DARE gain and cost
-[K, P] = dlqr(A, B, Q, R);
-K = -K; 
-
-% Calculate Xn and Xf (maximum LQR-invariant set) using normal penalty.
-[Xn, V, Z] = findXn(A, B, K, N, model.x.min, model.x.max, model.u.min, model.u.max, 'lqr');
-XN = Polyhedron(Xn{end}.A,Xn{end}.b);
-Xf = Polyhedron(Xn{1}.A,Xn{1}.b);
-XN.minHRep();
-Xf.minHRep();
-
-%Plot the ROA in 3D
-plot(XN.projection(1:3),'color','g',Xf.projection(1:3),'color','r');
-legend('$$X_N$$','$$X_f$$','Interpreter','latex');
+% %Compute DARE gain and cost
+% [K, P] = dlqr(A, B, Q, R);
+% K = -K; 
+% 
+% % Calculate Xn and Xf (maximum LQR-invariant set) using normal penalty.
+% [Xn, V, Z] = findXn(A, B, K, N, model.x.min, model.x.max, model.u.min, model.u.max, 'lqr');
+% XN = Polyhedron(Xn{end}.A,Xn{end}.b);
+% Xf = Polyhedron(Xn{1}.A,Xn{1}.b);
+% XN.minHRep();
+% Xf.minHRep();
+% 
+% %Plot the ROA in 3D
+% plot(XN.projection(1:3),'color','g',Xf.projection(1:3),'color','r');
+% legend('$$X_N$$','$$X_f$$','Interpreter','latex');
 
 
 %% Now simulate on the nonlinear system
@@ -170,28 +170,30 @@ x(:,k+1) = x_interval(end,:)';
 end
 
 %% Plot and compare with nonlinear model
+
 figure();
 subplot(3,1,1)
 stairs(Ts*(0:Nsim),x(1,:)'*180/pi,'c--');
-hold on
+hold on;
 stairs((0:Nsim)*Ts,data.X(1,:)'*180/pi,'c');
 stairs(Ts*(0:Nsim),x(2,:)'*180/pi,'b--');
-hold on
 stairs((0:Nsim)*Ts,data.X(2,:)'*180/pi,'b');
+hold off;
 xlabel('t[s]');
 ylabel('\theta,\alpha');
-legend('\theta(nonlin)','\theta(lin)','\alpha(nonlin)','\alpha(lin)');
-title('MPC applied to nonlineair model at \alpha(0)=4.3^o');
+legend([p1;p2;p3;p4],{'\theta(nonlin)','\theta(lin)','\alpha(nonlin)','\alpha(lin)'});
+title('MPC nonlinear vs linear model at \alpha(0)=4.3^o');
+
 subplot(3,1,2)
 stairs(Ts*(0:Nsim),x(3,:)'*180/pi,'m--');
 hold on
 stairs((0:Nsim)*Ts,data.X(3,:)'*180/pi,'m');
-stairs(Ts*(0:Nsim),x(4,:)'*180/pi);
-hold on
-stairs((0:Nsim)*Ts,data.X(4,:)'*180/pi);
-xlabel('t[s]');
 ylabel('\theta_d,\alpha_d');
+stairs(Ts*(0:Nsim),x(4,:)'*180/pi,'k--');
+stairs((0:Nsim)*Ts,data.X(4,:)'*180/pi,'k');
+xlabel('t[s]');
 legend('\theta_d(nonlin)','\theta_d(lin)','\alpha_d(nonlin)','\alpha_d(lin)');
+
 subplot(3,1,3);
 stairs(Ts*(0:Nsim-1),uApl','r');
 hold on;
