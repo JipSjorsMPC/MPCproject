@@ -181,7 +181,7 @@ stairs((0:Nsim)*Ts,data.X(2,:)'*180/pi,'b');
 hold off;
 xlabel('t[s]');
 ylabel('\theta,\alpha');
-legend([p1;p2;p3;p4],{'\theta(nonlin)','\theta(lin)','\alpha(nonlin)','\alpha(lin)'});
+legend('\theta(nonlin)','\theta(lin)','\alpha(nonlin)','\alpha(lin)');
 title('MPC nonlinear vs linear model at \alpha(0)=4.3^o');
 
 subplot(3,1,2)
