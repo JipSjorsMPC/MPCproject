@@ -21,7 +21,7 @@ function rp = simulatePendulum(x,Ts)
     pendulum_link = plot3(0,0,0,'Color',[135 22 20]/256,'linewidth',8); hold on
     traj = animatedline('Color','c');    
     set(attachement,'XData',[0 0],'Ydata',[0 0],'Zdata',[-Lp 0]);
-    axis([-Lp Lp -Lp Lp -Lp Lp]);
+    axis([-Lp*1.2 Lp*1.2 -Lp*1.2 Lp*1.2 -Lp*1.2 Lp*1.2]);
     xlabel('x'), ylabel('y'), zlabel('z');
     hold on, grid on; 
     view(75,3)
