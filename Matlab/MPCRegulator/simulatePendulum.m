@@ -15,12 +15,13 @@ function rp = simulatePendulum(x,Ts)
            Lp*cos(alpha)];  %[x,y,z]       
           
     figure(5);
-    plotcube([.1 .1 (Lp-.01)],[-.05 -.05 -Lp],1,[32 32 32]/256); hold on %EDGES,ORIGIN,ALPHA,COLOR
-    attachement = plot3(0,0,0,'Color',[32 32 32]/256,'linewidth',25); hold on
-    rotary_arm = plot3(0,0,0,'Color',[192 192 192]/256,'linewidth',4); hold on
+    plotcube([.1 .1 (Lp-.005)],[-.05 -.05 -(Lp+.005)],1,[32 32 32]/256); hold on %EDGES,ORIGIN,ALPHA,COLOR
+    plotcylinder(0.012,0.01,[170 169 173]/256);
+    pin = plot3(0,0,0,'Color',[32 32 32]/256,'linewidth',10); hold on
+    rotary_arm = plot3(0,0,0,'Color',[170 169 173]/256,'linewidth',4); hold on
     pendulum_link = plot3(0,0,0,'Color',[135 22 20]/256,'linewidth',8); hold on
     traj = animatedline('Color','c');    
-    set(attachement,'XData',[0 0],'Ydata',[0 0],'Zdata',[-Lp 0]);
+    set(pin,'XData',[0 0],'Ydata',[0 0],'Zdata',[-Lp 0]);
     axis([-Lp*1.2 Lp*1.2 -Lp*1.2 Lp*1.2 -Lp*1.2 Lp*1.2]);
     xlabel('x'), ylabel('y'), zlabel('z');
     hold on, grid on; 
