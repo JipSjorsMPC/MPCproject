@@ -14,7 +14,7 @@ function rp = simulatePendulum(x,Ts)
            Lr*sin(theta)-Lp*sin(alpha).*cos(theta);
            Lp*cos(alpha)];  %[x,y,z]       
           
-    figure(5);
+    figure('Name','Simulation MPC with swing-up','Position',[250 500 400 350]);
     plotcube([.1 .1 (Lp-.005)],[-.05 -.05 -(Lp+.005)],1,[32 32 32]/256); hold on %EDGES,ORIGIN,ALPHA,COLOR
     plotcylinder(0.012,0.01,[170 169 173]/256);
     pin = plot3(0,0,0,'Color',[32 32 32]/256,'linewidth',10); hold on

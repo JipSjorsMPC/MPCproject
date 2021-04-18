@@ -2,8 +2,8 @@ close all;
 clear all;
 clc;
 
-%% Define parameters
-global mr Lr mp Lp Rm kt km g Br Bp Jr Jp u;
+% Define parameters
+global mr Lr mp Lp Rm kt km g Br Bp Jr Jp;
 
 mr = 0.095;         % Rotary arm mass
 Lr = 0.085;         % Rotary arm length
@@ -26,7 +26,7 @@ Jp = 1.2551*10^-4;	% Rotary arm moment of inertia
 %Lump motor, hub and rotary arm
 Jr = Jr + Jh + Jm;
 
-%% Obtain model
+% Obtain model
 
 %Linearize continuous dynamics around reference point
 xRef = [0; 0; 0; 0];
@@ -45,21 +45,19 @@ Ts = 0.05;
 sysd = c2d(ss(Ac,Bc,Cc,Dc),Ts,'zoh');
 [A,B,C,D] = ssdata(sysd);
 
-%% Parameters
+% Parameters
 %Parameters
-% Q = blkdiag(10,100,1,5); %standard working
-% R = 0.01;
-% N = 20;
-Q = blkdiag(10,50,1,5);
-R = 0.01;
-N = 20;
-model.u.min = -1;
-model.u.max = 1;
-model.x.min = [-pi/2; -pi/10; -20*2*pi; -20*2*pi];
-model.x.max = [pi/2; pi/10; 20*2*pi; 20*2*pi];
-x0 = [0; 2*pi/180; 0; 0];
+Q = blkdiag(10,100,1,5);
+R = .01;
+N = 25;
 
-%% Build the MPC problem
+constr.u.min = -1;
+constr.u.max = 1;
+constr.x.min = [-pi/2; -pi/10; -20*2*pi; -20*2*pi];
+constr.x.max = [pi/2; pi/10; 20*2*pi; 20*2*pi];
+x0 = [0; 4*pi/180; 0; 0];
+
+% Build the MPC problem
 
 % Get unconstrained infinite control Riccati cost and control
 [P,~,G] = dare(A,B,Q,R);
@@ -67,21 +65,21 @@ K = -G;
 
 % Define state and input polyhedrons
 Au = [1; -1];
-bu = [model.u.max; -model.u.min];
+bu = [constr.u.max; -constr.u.min];
 Ax = [eye(nx); -eye(nx)];
-bx = [model.x.max; -model.x.min];
+bx = [constr.x.max; -constr.x.min];
 
 % Calculate Xn and Xf (maximum LQR-invariant set) 
-[Xn, V, Z] = findXn(A, B, K, N, model.x.min, model.x.max, model.u.min, model.u.max, 'lqr');
+[Xn, V, Z] = findXn(A, B, K, N, constr.x.min, constr.x.max, constr.u.min, constr.u.max, 'lqr');
 XN = Polyhedron(Xn{end}.A,Xn{end}.b);
 XN.minHRep();
 Xf = Polyhedron(Xn{1}.A,Xn{1}.b);
 Xf.minHRep();
 plot(XN.projection(1:3),'color','g',Xf.projection(1:3),'color','r');
 legend('$$X_N$$','$$X_f$$','Interpreter','latex');
-xlabel('\theta');
-ylabel('\alpha');
-zlabel('$\dot{\theta}$','interpreter','latex');
+xlabel('$\theta$','interpreter','latex','fontsize',12);
+ylabel('$\alpha$','interpreter','latex','fontsize',12);
+zlabel('$\dot{\theta}$','interpreter','latex','fontsize',12);
 
 %Get Prediction matrices
 [T,S] = getStatePredictionMatrices(A,B,N);
@@ -94,10 +92,10 @@ g2h = repmat(bu,N,1);
 F_con = [F1h*S; F2h];
 g_con = [g1h-F1h*T*x0; g2h];
 
-%% Simulate the online optimization problem for the linear system
+% Simulate the online optimization problem for the linear system
 
 %Prepare problem
-Tsim = 1.8; %[s]
+Tsim = 2; %[s]
 ksim = round(Tsim/Ts);
 u_apl = zeros(ni,ksim);
 x = zeros(nx,ksim);  
@@ -127,31 +125,31 @@ for k = 1:ksim
     
 end
 
-%% Plot the results
-figure();
-subplot(3,2,1:2)
-stairs(Ts*(0:ksim),x(1,:)'*180/pi);
-xlabel('t[s]');
-ylabel('$\theta$,$\alpha$ [deg]','interpreter','latex');
-hold on;
-stairs(Ts*(0:ksim),x(2,:)'*180/pi);
-legend('$\theta(t)$','$\alpha(t)$','interpreter','latex');
-title('MPC Regulation: state \theta and \alpha');
-subplot(3,2,3:4);
-stairs(Ts*(0:ksim),x(3,:)'*180/pi);
-xlabel('t[s]');
-ylabel('$\dot{\theta}$,$\dot{\alpha}$ [deg/s]','interpreter','latex');
-hold on
-stairs(Ts*(0:ksim),x(4,:)'*180/pi);
-legend('$\dot{\theta}(t)$','$\dot{\alpha}(t)$','interpreter','latex');
-title('MPC Regulation: state \theta_d and \alpha_d');
-subplot(3,2,5:6);
-stairs(Ts*(0:ksim-1),u_apl','r');
-title('Control input u(t)');
-xlabel('t[s]');
-ylabel('$u[V]$','interpreter','latex');
-legend('$V_m(t)$','interpreter','latex');
 
+% Plot the results
+figure('Name','MPC Regulation','Position',[350 500 400 400]);
+subplot(3,1,1)
+    stairs(Ts*(0:ksim),x(1,:)'*180/pi,'LineWidth',1), hold on;
+    stairs(Ts*(0:ksim),x(2,:)'*180/pi,'LineWidth',1);
+%     xlabel('$t [s]$','interpreter','latex','fontsize',12);
+    ylabel('$\theta, \alpha [deg]$','interpreter','latex','fontsize',12);    
+    legend('$\theta(t)$','$\alpha(t)$','interpreter','latex','fontsize',8);
+%     title('MPC Regulation: state \theta and \alpha');
+subplot(3,1,2);
+    stairs(Ts*(0:ksim),x(3,:)'*180/pi,'LineWidth',1), hold on
+    stairs(Ts*(0:ksim),x(4,:)'*180/pi,'LineWidth',1);
+%     xlabel('$t [s]$','interpreter','latex','fontsize',12);
+    ylabel('$\dot{\theta}, \dot{\alpha} [deg/s]$','interpreter','latex','fontsize',12);    
+    legend('$\dot{\theta}(t)$','$\dot{\alpha}(t)$','interpreter','latex','fontsize',8);
+%     title('MPC Regulation: state \theta_d and \alpha_d');
+subplot(3,1,3);
+    stairs(Ts*(0:ksim-1),u_apl','r','LineWidth',1);
+    xlabel('$t [s]$','interpreter','latex','fontsize',12);
+    ylabel('$u [V]$','interpreter','latex','fontsize',12);
+    legend('$V_m(t)$','interpreter','latex','fontsize',8);
+%     title('Control input u(t)');
+
+    
 %% Output MPC and disturbance rejection
 
 C = [1 0 0 0; 0 1 0 0];
@@ -250,62 +248,61 @@ for k = 1:ksim
 end
 
 %% Plot the system dynamics
-figure();
+figure('Name','Output MPC','Position',[600 400 400 500]);
 subplot(4,1,1)
-stairs((0:ksim)*Ts,x(1:2,:)'*180/pi);
-title('Output MPC: state x1 and x2');
-xlabel('t[s]');
-ylabel('\theta,\alpha [deg]');
-legend('x_1(k)','x_2(k)');
+    stairs((0:ksim)*Ts,x(1:2,:)'*180/pi,'LineWidth',1);
+%     xlabel('$t [s]$','interpreter','latex','fontsize',12);
+    ylabel('$\theta, \alpha [deg]$','interpreter','latex','fontsize',12);
+    legend('$x_1(k)$','$x_2(k)$','interpreter','latex','fontsize',8);
+%     title('Output MPC: state x1 and x2');~
 subplot(4,1,2);
-stairs((0:ksim)*Ts,x(3:4,:)'*180/pi);
-title('Output MPC: State x3 and x4');
-xlabel('t[s]');
-ylabel('\theta_d,\alpha_d [deg/s]');
-legend('x_3(k)','x_4(k)');
+    stairs((0:ksim)*Ts,x(3:4,:)'*180/pi,'LineWidth',1);
+%     xlabel('$t [s]$','interpreter','latex','fontsize',12);
+    ylabel('$\dot{\theta}, \dot{\alpha} [deg/s]$','interpreter','latex','fontsize',12);
+    legend('$x_3(k)$','$x_4(k)$','interpreter','latex','fontsize',8);
+%     title('Output MPC: State x3 and x4');
 subplot(4,1,3);
-stairs((0:ksim-1)*Ts,(H*y)*180/pi);
-hold on;
-stairs((0:ksim-1)*Ts, rsp*ones(1,ksim)*180/pi,'--r');
-title('Controlled variable r=\theta');
-xlabel('t[s]');
-yl = ylim;
-ylim(yl+[-inf,1.05*rsp*180/pi]);
-ylabel('r [rad]');
-legend('r(k)','rsp');
+    stairs((0:ksim-1)*Ts,(H*y)*180/pi,'LineWidth',1), hold on;
+    stairs((0:ksim-1)*Ts, rsp*ones(1,ksim)*180/pi,'--r','LineWidth',1);
+%     xlabel('$t [s]$','interpreter','latex','fontsize',12);
+    yl = ylim;
+    ylim(yl+[-inf,1.05*rsp*180/pi]);
+    ylabel('$r [rad]$','interpreter','latex','fontsize',12);
+    legend('$r(k)$','$r_{sp}$','interpreter','latex','fontsize',8);
+%     title('Controlled variable r=\theta');
 subplot(4,1,4)
-stairs((0:ksim-1)*Ts,u_apl(1,:),'r');
-ylabel('u [V]');
-title('Control input u(k)');
-xlabel('t[s]');
-legend('u_1(k)');
+    stairs((0:ksim-1)*Ts,u_apl(1,:),'r','LineWidth',1);
+    ylabel('$u [V]$','interpreter','latex','fontsize',12);
+    xlabel('$t [s]$','interpreter','latex','fontsize',12);
+    legend('$u_1(k)$','interpreter','latex','fontsize',8);
+%     title('Control input u(k)');
 
 %Plot error dynamics
-figure();
+figure('Name','Tracking error, disturbance estimate and state estimation','Position',[850 500 400 400]);
 subplot(3,1,1);
-stairs((0:ksim-1)*Ts,(H*y-rsp)*180/pi);
-title('Tracking Error');
-xlabel('t[s]');
-ylabel('e_\theta[deg]');
-legend('e_r(k)');
+    stairs((0:ksim-1)*Ts,(H*y-rsp)*180/pi,'LineWidth',1);
+%     xlabel('$t [s]$','interpreter','latex','fontsize',12);
+    ylabel('$e_\theta [deg]$','interpreter','latex','fontsize',12);
+    legend('$e_r(k)$','interpreter','latex','fontsize',8);
+%     title('Tracking Error');
 subplot(3,1,2);
-yyaxis left
-stairs((0:ksim)*Ts,dh(1,:)');
-title('Disturbance estimate');
-xlabel('t[s]');
-ylabel('d(k)');
-yyaxis right
-stairs((0:ksim)*Ts,dh(2,:)');
-legend('d_1(k)','d_2(k)');
+    yyaxis left
+    stairs((0:ksim)*Ts,dh(1,:)','LineWidth',1);
+%     xlabel('$t [s]$','interpreter','latex','fontsize',12);
+    ylabel('$d(k)$','interpreter','latex','fontsize',12);
+    yyaxis right
+    stairs((0:ksim)*Ts,dh(2,:)','LineWidth',1);
+    legend('$d_1(k)$','$d_2(k)$','interpreter','latex','fontsize',8);
+%     title('Disturbance estimate');
 subplot(3,1,3);
-stairs((0:ksim)*Ts,(x-xh)'*180/pi);
-title('State estimation error');
-xlabel('t[s]');
-ylabel('e_x(k)');
-legend('e_1(k)','e_2(k)','e_3(k)','e_4(k)');
+    stairs((0:ksim)*Ts,(x-xh)'*180/pi,'LineWidth',1);
+    xlabel('$t [s]$','interpreter','latex','fontsize',12);
+    ylabel('$e_x(k)$','interpreter','latex','fontsize',12);
+    legend('$e_1(k)$','$e_2(k)$','$e_3(k)$','$e_4(k)$','interpreter','latex','fontsize',8);
+%     title('State estimation error');
 
 
-%% %% Compare with Pole placement and LQR controllers
+%% Compare with Pole placement and LQR controllers
 % applied with Q = blkdiag(10,100,1,5);R = 0.01;N = 20;
 Tsim = 5; %[s]
 ksim = round(Tsim/Ts);
@@ -368,32 +365,31 @@ for k = 1:ksim
    xlqr(:,k+1) = A*xlqr(:,k)+B*u_lqr(:,k);    
 end
 %% Plot results
-
+figure('Name','Pole placement vs MPC','Position',[1100 500 400 400])
 subplot(3,1,1);
-    stairs((0:ksim)*Ts,x_pp(1,:)'*180/pi,'b');
-    title('Pole placement vs MPC: state \theta');
-    hold on;   
-    stairs((0:ksim)*Ts,xlqr(1,:)'*180/pi,'c');
-    stairs((0:ksim)*Ts,x(1,:)'*180/pi,'m');   
-    plot((0:ksim-1)*Ts,xd(1,1:ksim)*180/pi,'k--');    
-    legend(['x_{PP} with \zeta = ',num2str(zeta),',\omega_n = ',num2str(wn)],'x_{LQR}','x_{MPC}','\theta_{ref}');
-    ylabel('\theta [deg]');
-    xlabel('t[s]');
+    stairs((0:ksim)*Ts,x_pp(1,:)'*180/pi,'b','LineWidth',1), hold on       
+    stairs((0:ksim)*Ts,xlqr(1,:)'*180/pi,'c','LineWidth',1), hold on
+    stairs((0:ksim)*Ts,x(1,:)'*180/pi,'m','LineWidth',1), hold on   
+    plot((0:ksim-1)*Ts,xd(1,1:ksim)*180/pi,'k--','LineWidth',1);    
+%     xlabel('$t [s]$','interpreter','latex','fontsize',12);
+    ylabel('$\theta [deg]$','interpreter','latex','fontsize',12);
+    legend('$x_{PP}$','$x_{LQR}$','$x_{MPC}$','$\theta_{ref}$','interpreter','latex','fontsize',8);%['x_{PP} with \zeta = ',num2str(zeta),',\omega_n = ',num2str(wn)],'x_{LQR}','x_{MPC}','\theta_{ref}');
+%     title('Pole placement vs MPC: state \theta');
 subplot(3,1,2);
-    stairs((0:ksim)*Ts,x_pp(2,:)'*180/pi,'b');
-    title('Pole placement vs MPC: state \alpha');
-    hold on;   
-    stairs((0:ksim)*Ts,xlqr(2,:)'*180/pi,'c');
-    stairs((0:ksim)*Ts,x(2,:)'*180/pi,'m');
-    ylabel('\alpha [deg]');
-    xlabel('t[s]');
+    stairs((0:ksim)*Ts,x_pp(2,:)'*180/pi,'b','LineWidth',1), hold on 
+    stairs((0:ksim)*Ts,xlqr(2,:)'*180/pi,'c','LineWidth',1), hold on
+    stairs((0:ksim)*Ts,x(2,:)'*180/pi,'m','LineWidth',1);
+%     xlabel('$t [s]$','interpreter','latex','fontsize',12);
+    ylabel('$\alpha [deg]$','interpreter','latex','fontsize',12);
+%     title('Pole placement vs MPC: state \alpha');
 subplot(3,1,3)
-    stairs((0:ksim-1)*Ts,u_pp,'b--');
-    hold on;
-    stairs((0:ksim-1)*Ts,u_apl,'r');
-    stairs((0:ksim-1)*Ts,u_lqr,'k:');
-    plot((0:ksim-1)*Ts,[model.u.min; model.u.max]*ones(1,ksim),'g--');
+    stairs((0:ksim-1)*Ts,u_pp,'b--','LineWidth',1), hold on
+    stairs((0:ksim-1)*Ts,u_apl,'r','LineWidth',1), hold on
+    stairs((0:ksim-1)*Ts,u_lqr,'k:','LineWidth',1), hold on
+    plot((0:ksim-1)*Ts,[constr.u.max;constr.u.min]*ones(1,ksim),'g--');
     ylim([-1.6 1.2]);
-    legend('u_{PP}','u_{MPC}','u_{LQR}');
-    title('Control input');
+    xlabel('$t [s]$','interpreter','latex','fontsize',12);
+    ylabel('$u [V]$','interpreter','latex','fontsize',12);
+    legend('$u_{PP}$','$u_{MPC}$','$u_{LQR}$','interpreter','latex','fontsize',8);
+%     title('Control input');
 

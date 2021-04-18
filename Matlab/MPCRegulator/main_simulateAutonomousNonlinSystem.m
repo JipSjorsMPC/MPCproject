@@ -32,9 +32,9 @@ Jp = 1.2551*10^-4;	% Rotary arm moment of inertia
 global u
 u = 0;
 
-x0 = [0; pi/2; 0; 0];
-Tf = 5;
-[t,x] = ode45(@nonlinearPendulumDynamics,[0 Tf],x0);
+uApl(:,k) = uOpt; 
+u = uApl(:,k);
+[tout,x_interval] = ode45(@nonlinearPendulumDynamics,[time(k) time(k+1)],x(:,k));
 
 %Plot the results
 subplot(2,2,1);

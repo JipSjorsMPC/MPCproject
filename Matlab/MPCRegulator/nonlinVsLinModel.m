@@ -69,14 +69,14 @@ sysd = c2d(ss(Ac,Bc,C,D),Ts,'zoh');
 %Weights
 Q = blkdiag(10,100,1,5);
 R = 0.01;
-N = 50;
+N = 20;
 
 %Define model
 model = LTISystem('A', A, 'B', B, 'C', C, 'D', D, 'Ts', Ts);
 
 %State and input constraints
-model.u.min = -10;
-model.u.max = 10;
+model.u.min = -1;
+model.u.max = 1;
 model.x.min = [-pi -pi/10 -20*2*pi -20*2*pi];
 model.x.max = [pi pi/10 20*2*pi 20*2*pi];
 
@@ -96,75 +96,60 @@ loop = ClosedLoop(mpc_controller, model);
 
 %% Now simulate on the nonlinear system
 
-% %Swing up control %WORKING
-% gamma = 5*pi/180;   %Define swing up transition point |\alpha|<=gamma;
-% Er = mp*g*Lp;       %Reference potential energy (upright position)
-% xpmax = 15.0;    	  %Maximum pivot acceleration xp_max = tau_max/(mr*Lr) where tau_max = kt*Vmax/Rm
-% xpmin = -xpmax;
-% mu = xpmax*5;             %Control input multiplier 
-% saturate = @(xpmax,x) min( xpmax, max(-xpmax,x));
-
-%Swing up control
-gamma = 5*pi/180;   %Define swing up transition point |\alpha|<=gamma;
-Er = mp*g*Lp;       %Reference potential energy (upright position)
-xpmax = 15.0;       %Maximum pivot acceleration xp_max = tau_max/(mr*Lr) where tau_max = kt*Vmax/Rm
-xpmin = -xpmax;
-mu = xpmax*5;      	%Control input multiplier 
-saturate = @(xpmax,x) min( xpmax, max(-xpmax,x));
-
 %Prepare simulation
-Tsim = 10;
+Tsim = 2;
 Nsim = round(Tsim/Ts);
-x0 = [0; 175*pi/180; 0; 0];
+x0 = [0; 4*pi/180; 0; 0];
 x = zeros(nx,Nsim+1);
 x(:,1) = x0;
-uApl = zeros(ni,Nsim);
 time = (0:Nsim+1)*Ts;
 
-%pole placement controller
-zeta = 0.7; wn = 3.8;
-RePo = [-10 -15];
-dSoPo = computeSecondOrderDiscretePoles(zeta,wn,Ts);
-dRePo = computeRealDiscretePole(Ts,RePo);
-poles = [dSoPo, dRePo];
-K_pp = place(A,B,poles);
-
-for k = 1:Nsim 
-    
-%Do MPC/PP control if |alpha|<=gamma, else do swing up 
-if ( abs( x(2,k) ) <= gamma )   
-   
-   disp('Stabilizing controller active');
-    
-    %MPC control
-    uOpt = mpc_controller.evaluate(x(:,k));
-    
-%     %Pole placement control
-%     uOpt = -K_pp *x(:,k); %      
-  
-else 
-    disp('Swing up active');
-    %Compute Swing up control    
-    alpha = pi-x(2,k); %(definition of alpha is reversed in the swing up control law)
-    E = 1/2*Jp*(x(4,k))^2 + 0.5*mp*g*Lp*(1-cos(alpha));
-    ctrl = mu*(E-Er)*sign(x(4,k)*cos(alpha));
-    u_pv = saturate(xpmax,ctrl);  
-    uOpt = mr*Lr*u_pv*Rm/kt + km*x(3,k);
-    
-end
+data = loop.simulate(x0,Nsim);
 
 %Simulate the system using zero order hold
-uApl(:,k) = uOpt; 
-u = uApl(:,k);
-[tout,x_interval] = ode45(@nonlinearPendulumDynamics,[time(k) time(k+1)],x(:,k));
+for k = 1:Nsim 
+    uOpt = mpc_controller.evaluate(x(:,k)); 
+    unonlin(:,k) = uOpt; 
+    u = unonlin(:,k);
+    [tout,x_interval] = ode45(@nonlinearPendulumDynamics,[time(k) time(k+1)],x(:,k));
+    
+    %Evaluate the next state
+    x(:,k+1) = x_interval(end,:)';
 
-%Evaluate the next state
-x(:,k+1) = x_interval(end,:)';
-
-%Normalize angles
-x(1:2,k+1) = wrapToPi( x(1:2,k+1) );
-
+    %Normalize angles
+    x(1:2,k+1) = wrapToPi( x(1:2,k+1) );
 end
+%%
 
-%Animate the pendulum
-simulatePendulum(x,Ts);
+%Define colors
+orange = [255 128 0]/256;
+purple = [102 0 204]/256;
+
+figure('Name','Linear vs Nonlinear','Position',[850 500 400 400])
+subplot(3,1,1)
+    stairs(Ts*(0:Nsim),data.X(1,:)'*180/pi,'Color',purple,'LineWidth',1); hold on
+    stairs(Ts*(0:Nsim),x(1,:)'*180/pi,'m','LineWidth',1); hold on
+    stairs(Ts*(0:Nsim),data.X(2,:)'*180/pi,'b','LineWidth',1); hold on
+    stairs(Ts*(0:Nsim),x(2,:)'*180/pi,'c','LineWidth',1);
+%     xlabel('t[s]');
+    ylabel('$\theta, \alpha [deg]$','interpreter','latex','fontsize',12);   
+    legend('$\theta(t)(Lin.)$','$\theta(t)(Nonlin.)$','$\alpha(t) (Lin.)$','$\alpha(t) (Nonlin.)$','interpreter','latex','fontsize',8);
+%     title('Linear vs Nonlinear: state \theta and \alpha');
+subplot(3,1,2);
+    stairs(Ts*(0:Nsim),data.X(3,:)'*180/pi,'Color',purple,'LineWidth',1); hold on
+    stairs(Ts*(0:Nsim),x(3,:)'*180/pi,'m','LineWidth',1); hold on
+    stairs(Ts*(0:Nsim),data.X(4,:)'*180/pi,'b','LineWidth',1); hold on
+    stairs(Ts*(0:Nsim),x(4,:)'*180/pi,'c','LineWidth',1); hold on
+%     xlabel('t[s]');
+    ylabel('$\dot{\theta}$,$\dot{\alpha}$ [deg/s]','interpreter','latex');
+    legend('$\dot{\theta}(t)(Lin.)$','$\dot{\theta}(t)(Nonlin.)$','$\dot{\alpha}(t)(Lin.)$','$\dot{\alpha}(t)(Nonlin.)$','interpreter','latex','fontsize',8);
+%     title('Linear vs Nonlinear: state \theta_d and \alpha_d');
+subplot(3,1,3);
+    stairs(Ts*(0:Nsim-1),data.U,'r','LineWidth',1); hold on
+    stairs(Ts*(0:Nsim-1),unonlin','Color',orange,'LineWidth',1); hold on
+    plot((0:Nsim-1)*Ts,[model.u.max;model.u.min]*ones(1,Nsim),'g--');
+    xlabel('t[s]');
+    ylabel('$u[V]$','interpreter','latex');
+    ylim([-1.2 1.2]);
+    legend('$V_m(t)(Lin.)$','$V_m(t) (Nonlin.)$','interpreter','latex','fontsize',8);
+%     title('Linear vs Nonlinear: control input u(t)');

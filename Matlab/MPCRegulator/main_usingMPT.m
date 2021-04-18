@@ -104,30 +104,30 @@ data = loop.simulate(x0,Nsim);
 %Plot the results
 figure();
 subplot(3,2,1)
-stairs((0:Nsim)*Ts,data.X(1,:)'*180/pi);
-xlabel('t');
-ylabel('\theta[deg]');
-title('x_1(t)');
+    stairs((0:Nsim)*Ts,data.X(1,:)'*180/pi);
+    xlabel('t');
+    ylabel('\theta[deg]');
+    title('x_1(t)');
 subplot(3,2,2)
-stairs((0:Nsim)*Ts,data.X(2,:)'*180/pi);
-xlabel('t');
-ylabel('\alpha[deg]');
-title('x_2(t)');
+    stairs((0:Nsim)*Ts,data.X(2,:)'*180/pi);
+    xlabel('t');
+    ylabel('\alpha[deg]');
+    title('x_2(t)');
 subplot(3,2,3)
-stairs((0:Nsim)*Ts,data.X(3,:)'*180/pi);
-xlabel('t');
-ylabel('\theta_d[deg/s]');
-title('x_3(t)');
+    stairs((0:Nsim)*Ts,data.X(3,:)'*180/pi);
+    xlabel('t');
+    ylabel('\theta_d[deg/s]');
+    title('x_3(t)');
 subplot(3,2,4)
-stairs((0:Nsim)*Ts,data.X(4,:)'*180/pi);
-xlabel('t');
-ylabel('\alpha_d[deg/s]');
-title('x_4(t)');
+    stairs((0:Nsim)*Ts,data.X(4,:)'*180/pi);
+    xlabel('t');
+    ylabel('\alpha_d[deg/s]');
+    title('x_4(t)');
 subplot(3,2,[5 6]);
-stairs((0:Nsim-1)*Ts,data.U,'r');
-title('Control input du(t)')
-xlabel('t');
-ylabel('u [V]');
+    stairs((0:Nsim-1)*Ts,data.U,'r');
+    title('Control input du(t)')
+    xlabel('t');
+    ylabel('u [V]');
 
 
 %% Plot Xn and Xf
@@ -173,37 +173,37 @@ end
 
 figure();
 subplot(3,1,1)
-stairs(Ts*(0:Nsim),x(1,:)'*180/pi,'c--');
-hold on;
-stairs((0:Nsim)*Ts,data.X(1,:)'*180/pi,'c');
-stairs(Ts*(0:Nsim),x(2,:)'*180/pi,'b--');
-stairs((0:Nsim)*Ts,data.X(2,:)'*180/pi,'b');
-hold off;
-xlabel('t[s]');
-ylabel('\theta,\alpha');
-legend('\theta(nonlin)','\theta(lin)','\alpha(nonlin)','\alpha(lin)');
-title('MPC nonlinear vs linear model at \alpha(0)=4.3^o');
+    stairs(Ts*(0:Nsim),x(1,:)'*180/pi,'c--');
+    hold on;
+    stairs((0:Nsim)*Ts,data.X(1,:)'*180/pi,'c');
+    stairs(Ts*(0:Nsim),x(2,:)'*180/pi,'b--');
+    stairs((0:Nsim)*Ts,data.X(2,:)'*180/pi,'b');
+    hold off;
+    xlabel('t[s]');
+    ylabel('\theta,\alpha');
+    legend('\theta(nonlin)','\theta(lin)','\alpha(nonlin)','\alpha(lin)');
+    title('MPC nonlinear vs linear model at \alpha(0)=4.3^o');
 
 subplot(3,1,2)
-stairs(Ts*(0:Nsim),x(3,:)'*180/pi,'m--');
-hold on
-stairs((0:Nsim)*Ts,data.X(3,:)'*180/pi,'m');
-ylabel('\theta_d,\alpha_d');
-stairs(Ts*(0:Nsim),x(4,:)'*180/pi,'k--');
-stairs((0:Nsim)*Ts,data.X(4,:)'*180/pi,'k');
-xlabel('t[s]');
-legend('\theta_d(nonlin)','\theta_d(lin)','\alpha_d(nonlin)','\alpha_d(lin)');
+    stairs(Ts*(0:Nsim),x(3,:)'*180/pi,'m--');
+    hold on
+    stairs((0:Nsim)*Ts,data.X(3,:)'*180/pi,'m');
+    ylabel('\theta_d,\alpha_d');
+    stairs(Ts*(0:Nsim),x(4,:)'*180/pi,'k--');
+    stairs((0:Nsim)*Ts,data.X(4,:)'*180/pi,'k');
+    xlabel('t[s]');
+    legend('\theta_d(nonlin)','\theta_d(lin)','\alpha_d(nonlin)','\alpha_d(lin)');
 
 subplot(3,1,3);
-stairs(Ts*(0:Nsim-1),uApl','r');
-hold on;
-stairs(Ts*(0:Nsim-1),data.U','b--');
-plot(Ts*(0:Nsim-1),[model.u.min; model.u.max]*ones(1,Nsim),'g--');
-ylim([-1.1 1.1]);
-title('Control input ');
-xlabel('t[s]');
-ylabel('u[V]');
-legend('$V_m (nonlin)$','$V_m (lin)$','interpreter','latex');
+    stairs(Ts*(0:Nsim-1),uApl','r');
+    hold on;
+    stairs(Ts*(0:Nsim-1),data.U','b--');
+    plot(Ts*(0:Nsim-1),[model.u.min; model.u.max]*ones(1,Nsim),'g--');
+    ylim([-1.1 1.1]);
+    title('Control input ');
+    xlabel('t[s]');
+    ylabel('u[V]');
+    legend('$V_m (nonlin)$','$V_m (lin)$','interpreter','latex');
 
 
 

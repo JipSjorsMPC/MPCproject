@@ -42,7 +42,7 @@ case 'lqr'
 end
 
 % Now do feasible sets computation.
-figure();
+figure('Name','X_N and X_f','Position',[100 500 400 400]);
 hold('on');
 colors = jet(N + 1);
 
